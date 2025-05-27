@@ -36,40 +36,43 @@ const TranscriptionApp = () => {
         
         const translations = {
           'es-en': {
-            // Saludos y cortesía
-            'hola': 'hello',
-            'adiós': 'goodbye',
-            'gracias': 'thank you',
-            'por favor': 'please',
-            'de nada': 'you\'re welcome',
-            'perdón': 'sorry',
-            'disculpe': 'excuse me',
-            'lo siento': 'I am sorry',
-            
-            // Palabras básicas
-            'sí': 'yes',
-            'no': 'no',
-            'tal vez': 'maybe',
-            'quizás': 'perhaps',
-            
-            // Tiempo
+            // Frases largas primero (para evitar traducciones parciales)
+            'muy bien': 'very well',
             'buenos días': 'good morning',
             'buenas tardes': 'good afternoon',
             'buenas noches': 'good night',
-            'mañana': 'tomorrow',
-            'ayer': 'yesterday',
-            'hoy': 'today',
-            'ahora': 'now',
-            
-            // Preguntas comunes
+            'por favor': 'please',
+            'de nada': "you're welcome",
+            'lo siento': 'I am sorry',
             'cómo estás': 'how are you',
             'qué tal': 'how are you',
             'cómo te llamas': 'what is your name',
             'cuántos años tienes': 'how old are you',
             'de dónde eres': 'where are you from',
             'qué hora es': 'what time is it',
+            'me llamo': 'my name is',
+            'mi nombre es': 'my name is',
+            'hasta luego': 'see you later',
+            'hasta mañana': 'see you tomorrow',
+            'nos vemos': 'see you',
+            'que tengas buen día': 'have a good day',
+            'vivo en': 'I live in',
+            'trabajo de': 'I work as',
+            'tal vez': 'maybe',
             
-            // Familia
+            // Palabras individuales
+            'hola': 'hello',
+            'adiós': 'goodbye',
+            'gracias': 'thank you',
+            'perdón': 'sorry',
+            'disculpe': 'excuse me',
+            'sí': 'yes',
+            'no': 'no',
+            'quizás': 'perhaps',
+            'mañana': 'tomorrow',
+            'ayer': 'yesterday',
+            'hoy': 'today',
+            'ahora': 'now',
             'familia': 'family',
             'padre': 'father',
             'madre': 'mother',
@@ -77,8 +80,6 @@ const TranscriptionApp = () => {
             'hermana': 'sister',
             'hijo': 'son',
             'hija': 'daughter',
-            
-            // Casa y lugares
             'casa': 'house',
             'hogar': 'home',
             'trabajo': 'work',
@@ -86,8 +87,6 @@ const TranscriptionApp = () => {
             'hospital': 'hospital',
             'restaurante': 'restaurant',
             'tienda': 'store',
-            
-            // Comida
             'comida': 'food',
             'agua': 'water',
             'pan': 'bread',
@@ -96,24 +95,17 @@ const TranscriptionApp = () => {
             'pescado': 'fish',
             'verduras': 'vegetables',
             'fruta': 'fruit',
-            
-            // Personas
             'amigo': 'friend',
             'persona': 'person',
             'hombre': 'man',
             'mujer': 'woman',
             'niño': 'child',
             'bebé': 'baby',
-            
-            // Estados
-            'muy bien': 'very well',
             'bien': 'good',
             'mal': 'bad',
             'feliz': 'happy',
             'triste': 'sad',
             'cansado': 'tired',
-            
-            // Acciones
             'comer': 'eat',
             'beber': 'drink',
             'dormir': 'sleep',
@@ -121,31 +113,15 @@ const TranscriptionApp = () => {
             'estudiar': 'study',
             'caminar': 'walk',
             'correr': 'run',
-            
-            // Despedidas
-            'hasta luego': 'see you later',
-            'hasta mañana': 'see you tomorrow',
-            'nos vemos': 'see you',
-            'que tengas buen día': 'have a good day',
-            
-            // Presentación personal
-            'me llamo': 'my name is',
-            'mi nombre es': 'my name is',
             'soy': 'I am',
             'tengo': 'I have',
             'años': 'years old',
-            'vivo en': 'I live in',
-            'trabajo de': 'I work as',
             'estudio': 'I study',
-            
-            // Idiomas
             'hablo': 'I speak',
             'inglés': 'english',
             'español': 'spanish',
             'idioma': 'language',
             'idiomas': 'languages',
-            
-            // Palabras adicionales comunes
             'muy': 'very',
             'mucho': 'much',
             'poco': 'little',
@@ -163,39 +139,43 @@ const TranscriptionApp = () => {
             'todos': 'everyone'
           },
           'en-es': {
-            // Greetings and courtesy
-            'hello': 'hola',
-            'goodbye': 'adiós',
-            'thank you': 'gracias',
-            'please': 'por favor',
-            'you\'re welcome': 'de nada',
-            'sorry': 'perdón',
-            'excuse me': 'disculpe',
-            'I am sorry': 'lo siento',
-            
-            // Basic words
-            'yes': 'sí',
-            'no': 'no',
-            'maybe': 'tal vez',
-            'perhaps': 'quizás',
-            
-            // Time
+            // Frases largas primero
+            'very well': 'muy bien',
             'good morning': 'buenos días',
             'good afternoon': 'buenas tardes',
             'good night': 'buenas noches',
-            'tomorrow': 'mañana',
-            'yesterday': 'ayer',
-            'today': 'hoy',
-            'now': 'ahora',
-            
-            // Common questions
+            'thank you': 'gracias',
+            "you're welcome": 'de nada',
+            'excuse me': 'disculpe',
+            'I am sorry': 'lo siento',
             'how are you': 'cómo estás',
             'what is your name': 'cómo te llamas',
             'how old are you': 'cuántos años tienes',
             'where are you from': 'de dónde eres',
             'what time is it': 'qué hora es',
+            'my name is': 'me llamo',
+            'see you later': 'hasta luego',
+            'see you tomorrow': 'hasta mañana',
+            'see you': 'nos vemos',
+            'have a good day': 'que tengas buen día',
+            'I live in': 'vivo en',
+            'I work as': 'trabajo de',
+            'years old': 'años',
+            'I speak': 'hablo',
             
-            // Family
+            // Palabras individuales
+            'hello': 'hola',
+            'goodbye': 'adiós',
+            'please': 'por favor',
+            'sorry': 'perdón',
+            'yes': 'sí',
+            'no': 'no',
+            'maybe': 'tal vez',
+            'perhaps': 'quizás',
+            'tomorrow': 'mañana',
+            'yesterday': 'ayer',
+            'today': 'hoy',
+            'now': 'ahora',
             'family': 'familia',
             'father': 'padre',
             'mother': 'madre',
@@ -203,8 +183,6 @@ const TranscriptionApp = () => {
             'sister': 'hermana',
             'son': 'hijo',
             'daughter': 'hija',
-            
-            // House and places
             'house': 'casa',
             'home': 'hogar',
             'work': 'trabajo',
@@ -212,8 +190,6 @@ const TranscriptionApp = () => {
             'hospital': 'hospital',
             'restaurant': 'restaurante',
             'store': 'tienda',
-            
-            // Food
             'food': 'comida',
             'water': 'agua',
             'bread': 'pan',
@@ -222,55 +198,30 @@ const TranscriptionApp = () => {
             'fish': 'pescado',
             'vegetables': 'verduras',
             'fruit': 'fruta',
-            
-            // People
             'friend': 'amigo',
             'person': 'persona',
             'man': 'hombre',
             'woman': 'mujer',
             'child': 'niño',
             'baby': 'bebé',
-            
-            // States
-            'very well': 'muy bien',
             'well': 'bien',
             'bad': 'mal',
             'happy': 'feliz',
             'sad': 'triste',
             'tired': 'cansado',
-            
-            // Actions
             'eat': 'comer',
             'drink': 'beber',
             'sleep': 'dormir',
-            'work': 'trabajar',
             'study': 'estudiar',
             'walk': 'caminar',
             'run': 'correr',
-            
-            // Farewells
-            'see you later': 'hasta luego',
-            'see you tomorrow': 'hasta mañana',
-            'see you': 'nos vemos',
-            'have a good day': 'que tengas buen día',
-            
-            // Personal introduction
-            'my name is': 'me llamo',
             'I am': 'soy',
             'I have': 'tengo',
-            'years old': 'años',
-            'I live in': 'vivo en',
-            'I work as': 'trabajo de',
             'I study': 'estudio',
-            
-            // Languages
-            'I speak': 'hablo',
             'english': 'inglés',
             'spanish': 'español',
             'language': 'idioma',
             'languages': 'idiomas',
-            
-            // Additional common words
             'very': 'muy',
             'much': 'mucho',
             'little': 'poco',
@@ -279,7 +230,6 @@ const TranscriptionApp = () => {
             'new': 'nuevo',
             'old': 'viejo',
             'good': 'bueno',
-            'bad': 'malo',
             'beautiful': 'bonito',
             'ugly': 'feo',
             'name': 'nombre',
@@ -289,7 +239,7 @@ const TranscriptionApp = () => {
           }
         };
 
-        let translatedText = text.toLowerCase();
+        let translatedText = text.toLowerCase().trim();
         const translationMap = translations[direction as keyof typeof translations];
         
         if (translationMap) {
@@ -297,13 +247,17 @@ const TranscriptionApp = () => {
           const sortedEntries = Object.entries(translationMap).sort((a, b) => b[0].length - a[0].length);
           
           sortedEntries.forEach(([original, translated]) => {
+            // Use word boundaries for better matching
             const regex = new RegExp(`\\b${original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
             translatedText = translatedText.replace(regex, translated);
           });
         }
 
-        // Capitalize first letter
-        translatedText = translatedText.charAt(0).toUpperCase() + translatedText.slice(1);
+        // Capitalize first letter and clean up spacing
+        translatedText = translatedText.trim();
+        if (translatedText) {
+          translatedText = translatedText.charAt(0).toUpperCase() + translatedText.slice(1);
+        }
         
         console.log('Translation result:', translatedText);
         return translatedText;
