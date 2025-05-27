@@ -279,6 +279,7 @@ const TranscriptionApp = () => {
             'new': 'nuevo',
             'old': 'viejo',
             'good': 'bueno',
+            'bad': 'malo',
             'beautiful': 'bonito',
             'ugly': 'feo',
             'name': 'nombre',
