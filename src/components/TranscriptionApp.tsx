@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, RotateCcw, Languages, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -229,7 +228,7 @@ const TranscriptionApp = () => {
             
             // States
             'very well': 'muy bien',
-            'good': 'bien',
+            'well': 'bien',
             'bad': 'mal',
             'happy': 'feliz',
             'sad': 'triste',
