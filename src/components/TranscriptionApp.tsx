@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, RotateCcw, Languages, ArrowDown, ArrowRight } from 'lucide-react';
+import { Mic, MicOff, RotateCcw, Languages, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -28,22 +29,77 @@ const TranscriptionApp = () => {
     { code: 'en-US', name: 'English', flag: '🇺🇸' }
   ];
 
-  // Simple translation function (would need to be replaced with a proper translation API)
+  // Enhanced translation function with better translations
   useEffect(() => {
     if (transcript) {
-      // Mock translation - in a real app, you'd use a translation API
-      const mockTranslate = (text: string, direction: string) => {
-        // This is just a placeholder - would need real translation API
-        if (direction === 'es-en') {
-          // Simulate Spanish to English translation with a slight delay
-          return `[Translation to English]: ${text}`;
-        } else {
-          // Simulate English to Spanish translation
-          return `[Traducción al Español]: ${text}`;
+      const translateText = (text: string, direction: string) => {
+        // Simple keyword-based translation for demonstration
+        const translations = {
+          'es-en': {
+            'hola': 'hello',
+            'adiós': 'goodbye',
+            'gracias': 'thank you',
+            'por favor': 'please',
+            'sí': 'yes',
+            'no': 'no',
+            'buenos días': 'good morning',
+            'buenas tardes': 'good afternoon',
+            'buenas noches': 'good night',
+            'cómo estás': 'how are you',
+            'muy bien': 'very well',
+            'qué tal': 'how are things',
+            'hasta luego': 'see you later',
+            'lo siento': 'I am sorry',
+            'disculpe': 'excuse me',
+            'agua': 'water',
+            'comida': 'food',
+            'casa': 'house',
+            'trabajo': 'work',
+            'amigo': 'friend',
+            'familia': 'family'
+          },
+          'en-es': {
+            'hello': 'hola',
+            'goodbye': 'adiós',
+            'thank you': 'gracias',
+            'please': 'por favor',
+            'yes': 'sí',
+            'no': 'no',
+            'good morning': 'buenos días',
+            'good afternoon': 'buenas tardes',
+            'good night': 'buenas noches',
+            'how are you': 'cómo estás',
+            'very well': 'muy bien',
+            'how are things': 'qué tal',
+            'see you later': 'hasta luego',
+            'I am sorry': 'lo siento',
+            'excuse me': 'disculpe',
+            'water': 'agua',
+            'food': 'comida',
+            'house': 'casa',
+            'work': 'trabajo',
+            'friend': 'amigo',
+            'family': 'familia'
+          }
+        };
+
+        let translatedText = text.toLowerCase();
+        const translationMap = translations[direction as keyof typeof translations];
+        
+        if (translationMap) {
+          Object.entries(translationMap).forEach(([original, translated]) => {
+            const regex = new RegExp(`\\b${original}\\b`, 'gi');
+            translatedText = translatedText.replace(regex, translated);
+          });
         }
+
+        // Capitalize first letter
+        translatedText = translatedText.charAt(0).toUpperCase() + translatedText.slice(1);
+        
+        return translatedText;
       };
       
-      setTranslationText(mockTranslate(transcript, translationDirection));
+      setTranslationText(translateText(transcript, translationDirection));
     } else {
       setTranslationText('');
     }
