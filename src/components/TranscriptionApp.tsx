@@ -127,7 +127,36 @@ const TranscriptionApp = () => {
             'hasta luego': 'see you later',
             'hasta mañana': 'see you tomorrow',
             'nos vemos': 'see you',
-            'que tengas buen día': 'have a good day'
+            'que tengas buen día': 'have a good day',
+            
+            // Presentación personal
+            'me llamo': 'my name is',
+            'soy': 'I am',
+            'tengo': 'I have',
+            'años': 'years old',
+            'vivo en': 'I live in',
+            'trabajo de': 'I work as',
+            'estudio': 'I study',
+            
+            // Idiomas
+            'hablo': 'I speak',
+            'inglés': 'english',
+            'español': 'spanish',
+            'idioma': 'language',
+            'idiomas': 'languages',
+            
+            // Palabras adicionales comunes
+            'muy': 'very',
+            'mucho': 'much',
+            'poco': 'little',
+            'grande': 'big',
+            'pequeño': 'small',
+            'nuevo': 'new',
+            'viejo': 'old',
+            'bueno': 'good',
+            'malo': 'bad',
+            'bonito': 'beautiful',
+            'feo': 'ugly'
           },
           'en-es': {
             // Greetings and courtesy
@@ -219,7 +248,34 @@ const TranscriptionApp = () => {
             'see you later': 'hasta luego',
             'see you tomorrow': 'hasta mañana',
             'see you': 'nos vemos',
-            'have a good day': 'que tengas buen día'
+            'have a good day': 'que tengas buen día',
+            
+            // Personal introduction
+            'my name is': 'me llamo',
+            'I am': 'soy',
+            'I have': 'tengo',
+            'years old': 'años',
+            'I live in': 'vivo en',
+            'I work as': 'trabajo de',
+            'I study': 'estudio',
+            
+            // Languages
+            'I speak': 'hablo',
+            'english': 'inglés',
+            'spanish': 'español',
+            'language': 'idioma',
+            'languages': 'idiomas',
+            
+            // Additional common words
+            'very': 'muy',
+            'much': 'mucho',
+            'little': 'poco',
+            'big': 'grande',
+            'small': 'pequeño',
+            'new': 'nuevo',
+            'old': 'viejo',
+            'beautiful': 'bonito',
+            'ugly': 'feo'
           }
         };
 
