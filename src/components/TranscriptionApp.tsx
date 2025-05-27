@@ -130,6 +130,7 @@ const TranscriptionApp = () => {
             
             // Presentación personal
             'me llamo': 'my name is',
+            'mi nombre es': 'my name is',
             'soy': 'I am',
             'tengo': 'I have',
             'años': 'years old',
@@ -155,7 +156,11 @@ const TranscriptionApp = () => {
             'bueno': 'good',
             'malo': 'bad',
             'bonito': 'beautiful',
-            'feo': 'ugly'
+            'feo': 'ugly',
+            'nombre': 'name',
+            'cómo': 'how',
+            'están': 'are',
+            'todos': 'everyone'
           },
           'en-es': {
             // Greetings and courtesy
@@ -273,8 +278,13 @@ const TranscriptionApp = () => {
             'small': 'pequeño',
             'new': 'nuevo',
             'old': 'viejo',
+            'good': 'bueno',
             'beautiful': 'bonito',
-            'ugly': 'feo'
+            'ugly': 'feo',
+            'name': 'nombre',
+            'how': 'cómo',
+            'are': 'están',
+            'everyone': 'todos'
           }
         };
 
