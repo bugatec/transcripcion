@@ -29,57 +29,197 @@ const TranscriptionApp = () => {
     { code: 'en-US', name: 'English', flag: '🇺🇸' }
   ];
 
-  // Enhanced translation function with better translations
+  // Enhanced translation function with comprehensive dictionary
   useEffect(() => {
     if (transcript) {
       const translateText = (text: string, direction: string) => {
-        // Simple keyword-based translation for demonstration
+        console.log('Translating text:', text, 'Direction:', direction);
+        
         const translations = {
           'es-en': {
+            // Saludos y cortesía
             'hola': 'hello',
             'adiós': 'goodbye',
             'gracias': 'thank you',
             'por favor': 'please',
+            'de nada': 'you\'re welcome',
+            'perdón': 'sorry',
+            'disculpe': 'excuse me',
+            'lo siento': 'I am sorry',
+            
+            // Palabras básicas
             'sí': 'yes',
             'no': 'no',
+            'tal vez': 'maybe',
+            'quizás': 'perhaps',
+            
+            // Tiempo
             'buenos días': 'good morning',
             'buenas tardes': 'good afternoon',
             'buenas noches': 'good night',
+            'mañana': 'tomorrow',
+            'ayer': 'yesterday',
+            'hoy': 'today',
+            'ahora': 'now',
+            
+            // Preguntas comunes
             'cómo estás': 'how are you',
-            'muy bien': 'very well',
-            'qué tal': 'how are things',
-            'hasta luego': 'see you later',
-            'lo siento': 'I am sorry',
-            'disculpe': 'excuse me',
-            'agua': 'water',
-            'comida': 'food',
+            'qué tal': 'how are you',
+            'cómo te llamas': 'what is your name',
+            'cuántos años tienes': 'how old are you',
+            'de dónde eres': 'where are you from',
+            'qué hora es': 'what time is it',
+            
+            // Familia
+            'familia': 'family',
+            'padre': 'father',
+            'madre': 'mother',
+            'hermano': 'brother',
+            'hermana': 'sister',
+            'hijo': 'son',
+            'hija': 'daughter',
+            
+            // Casa y lugares
             'casa': 'house',
+            'hogar': 'home',
             'trabajo': 'work',
+            'escuela': 'school',
+            'hospital': 'hospital',
+            'restaurante': 'restaurant',
+            'tienda': 'store',
+            
+            // Comida
+            'comida': 'food',
+            'agua': 'water',
+            'pan': 'bread',
+            'carne': 'meat',
+            'pollo': 'chicken',
+            'pescado': 'fish',
+            'verduras': 'vegetables',
+            'fruta': 'fruit',
+            
+            // Personas
             'amigo': 'friend',
-            'familia': 'family'
+            'persona': 'person',
+            'hombre': 'man',
+            'mujer': 'woman',
+            'niño': 'child',
+            'bebé': 'baby',
+            
+            // Estados
+            'muy bien': 'very well',
+            'bien': 'good',
+            'mal': 'bad',
+            'feliz': 'happy',
+            'triste': 'sad',
+            'cansado': 'tired',
+            
+            // Acciones
+            'comer': 'eat',
+            'beber': 'drink',
+            'dormir': 'sleep',
+            'trabajar': 'work',
+            'estudiar': 'study',
+            'caminar': 'walk',
+            'correr': 'run',
+            
+            // Despedidas
+            'hasta luego': 'see you later',
+            'hasta mañana': 'see you tomorrow',
+            'nos vemos': 'see you',
+            'que tengas buen día': 'have a good day'
           },
           'en-es': {
+            // Greetings and courtesy
             'hello': 'hola',
             'goodbye': 'adiós',
             'thank you': 'gracias',
             'please': 'por favor',
+            'you\'re welcome': 'de nada',
+            'sorry': 'perdón',
+            'excuse me': 'disculpe',
+            'I am sorry': 'lo siento',
+            
+            // Basic words
             'yes': 'sí',
             'no': 'no',
+            'maybe': 'tal vez',
+            'perhaps': 'quizás',
+            
+            // Time
             'good morning': 'buenos días',
             'good afternoon': 'buenas tardes',
             'good night': 'buenas noches',
+            'tomorrow': 'mañana',
+            'yesterday': 'ayer',
+            'today': 'hoy',
+            'now': 'ahora',
+            
+            // Common questions
             'how are you': 'cómo estás',
-            'very well': 'muy bien',
-            'how are things': 'qué tal',
-            'see you later': 'hasta luego',
-            'I am sorry': 'lo siento',
-            'excuse me': 'disculpe',
-            'water': 'agua',
-            'food': 'comida',
+            'what is your name': 'cómo te llamas',
+            'how old are you': 'cuántos años tienes',
+            'where are you from': 'de dónde eres',
+            'what time is it': 'qué hora es',
+            
+            // Family
+            'family': 'familia',
+            'father': 'padre',
+            'mother': 'madre',
+            'brother': 'hermano',
+            'sister': 'hermana',
+            'son': 'hijo',
+            'daughter': 'hija',
+            
+            // House and places
             'house': 'casa',
+            'home': 'hogar',
             'work': 'trabajo',
+            'school': 'escuela',
+            'hospital': 'hospital',
+            'restaurant': 'restaurante',
+            'store': 'tienda',
+            
+            // Food
+            'food': 'comida',
+            'water': 'agua',
+            'bread': 'pan',
+            'meat': 'carne',
+            'chicken': 'pollo',
+            'fish': 'pescado',
+            'vegetables': 'verduras',
+            'fruit': 'fruta',
+            
+            // People
             'friend': 'amigo',
-            'family': 'familia'
+            'person': 'persona',
+            'man': 'hombre',
+            'woman': 'mujer',
+            'child': 'niño',
+            'baby': 'bebé',
+            
+            // States
+            'very well': 'muy bien',
+            'good': 'bien',
+            'bad': 'mal',
+            'happy': 'feliz',
+            'sad': 'triste',
+            'tired': 'cansado',
+            
+            // Actions
+            'eat': 'comer',
+            'drink': 'beber',
+            'sleep': 'dormir',
+            'work': 'trabajar',
+            'study': 'estudiar',
+            'walk': 'caminar',
+            'run': 'correr',
+            
+            // Farewells
+            'see you later': 'hasta luego',
+            'see you tomorrow': 'hasta mañana',
+            'see you': 'nos vemos',
+            'have a good day': 'que tengas buen día'
           }
         };
 
@@ -87,8 +227,11 @@ const TranscriptionApp = () => {
         const translationMap = translations[direction as keyof typeof translations];
         
         if (translationMap) {
-          Object.entries(translationMap).forEach(([original, translated]) => {
-            const regex = new RegExp(`\\b${original}\\b`, 'gi');
+          // Sort by length (longest first) to handle phrases before individual words
+          const sortedEntries = Object.entries(translationMap).sort((a, b) => b[0].length - a[0].length);
+          
+          sortedEntries.forEach(([original, translated]) => {
+            const regex = new RegExp(`\\b${original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
             translatedText = translatedText.replace(regex, translated);
           });
         }
@@ -96,6 +239,7 @@ const TranscriptionApp = () => {
         // Capitalize first letter
         translatedText = translatedText.charAt(0).toUpperCase() + translatedText.slice(1);
         
+        console.log('Translation result:', translatedText);
         return translatedText;
       };
       
