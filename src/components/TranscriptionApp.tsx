@@ -160,16 +160,33 @@ const TranscriptionApp = () => {
   };
 
   const handleMicrophoneClick = async () => {
+    console.log('🎤 Microphone button clicked');
+    console.log('Current state:', { isListening, hasPermission, isMobile, selectedDeviceId });
+    
     if (isListening) {
+      console.log('🛑 Stopping listening...');
       stopListening();
     } else {
-      // Check permissions first on mobile
-      if (isMobile && hasPermission === null) {
-        const granted = await requestMicrophonePermission();
-        if (!granted) {
-          return;
+      console.log('🚀 Starting to listen...');
+      
+      // For mobile devices, always check permissions first
+      if (isMobile) {
+        console.log('📱 Mobile device - checking permissions...');
+        if (hasPermission === null || hasPermission === false) {
+          console.log('🔐 Requesting microphone permission for mobile...');
+          const granted = await requestMicrophonePermission();
+          if (!granted) {
+            console.error('❌ Permission denied');
+            alert('❌ Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.');
+            return;
+          }
         }
+        
+        // Add extra delay for mobile devices
+        console.log('⏳ Adding delay for mobile device...');
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
+      
       startListening();
     }
   };
@@ -194,14 +211,25 @@ const TranscriptionApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Debug info for mobile */}
+        {/* Enhanced debug info for mobile */}
         {isMobile && (
           <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-700">
-              <strong>Dispositivo móvil detectado:</strong> Asegúrate de permitir el acceso al micrófono cuando se solicite.
-              {hasPermission === false && ' ⚠️ Permisos denegados - por favor recarga la página y permite el acceso.'}
-              {selectedDeviceId && selectedDeviceId !== 'default' && ` Micrófono seleccionado: ${audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}`}
+            <p className="text-sm text-blue-700 mb-2">
+              <strong>📱 Dispositivo móvil detectado</strong>
             </p>
+            <div className="text-xs text-blue-600 space-y-1">
+              <div>🔐 Permisos: {hasPermission === null ? 'No solicitados' : hasPermission ? '✅ Concedidos' : '❌ Denegados'}</div>
+              <div>🎤 Estado: {isListening ? '🟢 Escuchando' : '🔴 Detenido'}</div>
+              <div>🔧 Micrófono: {selectedDeviceId === 'default' ? 'Predeterminado' : audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}</div>
+              <div>📊 Dispositivos disponibles: {audioDevices.length}</div>
+              {hasPermission === false && (
+                <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
+                  <p className="text-red-700 text-xs">
+                    ⚠️ <strong>Sin permisos de micrófono:</strong> Ve a la configuración del navegador → Privacidad → Micrófono → Permite el acceso para este sitio
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -354,7 +382,7 @@ const TranscriptionApp = () => {
                 ? 'bg-red-500 hover:bg-red-600 shadow-red-200'
                 : 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
             } shadow-lg`}
-            disabled={hasPermission === false}
+            disabled={hasPermission === false && !isMobile}
           >
             {isListening ? (
               <>
@@ -366,7 +394,7 @@ const TranscriptionApp = () => {
                 <div className="w-6 h-6 mr-2 bg-white rounded-full flex items-center justify-center">
                   <div className="w-3 h-3 bg-current rounded-full"></div>
                 </div>
-                Iniciar
+                {isMobile && hasPermission === false ? 'Permitir Micrófono' : 'Iniciar'}
               </>
             )}
           </Button>
@@ -382,6 +410,18 @@ const TranscriptionApp = () => {
             Limpiar
           </Button>
         </div>
+
+        {/* Debug Console for Mobile */}
+        {isMobile && (
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg border">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">🔧 Información de debug móvil</h3>
+            <div className="text-xs text-gray-600 font-mono space-y-1">
+              <div>User Agent: {navigator.userAgent.slice(0, 50)}...</div>
+              <div>Idioma: {selectedLanguage}</div>
+              <div>Transcripción activa: {transcript ? 'Sí (' + transcript.length + ' chars)' : 'No'}</div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500">
