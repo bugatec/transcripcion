@@ -31,13 +31,14 @@ declare global {
   }
 }
 
-export const useSpeechRecognition = (language: string = 'es-ES') => {
+export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: string) => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef('');
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     // Check if browser supports speech recognition
@@ -69,6 +70,12 @@ export const useSpeechRecognition = (language: string = 'es-ES') => {
     recognition.onend = () => {
       console.log('Speech recognition ended');
       setIsListening(false);
+      
+      // Clean up media stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -133,16 +140,28 @@ export const useSpeechRecognition = (language: string = 'es-ES') => {
     };
   }, [language, isListening]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     const recognition = recognitionRef.current;
     if (!recognition || isListening) return;
 
     try {
+      // If a specific device is selected, request access to it
+      if (deviceId) {
+        const constraints = {
+          audio: {
+            deviceId: { exact: deviceId }
+          }
+        };
+        
+        streamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Using microphone:', deviceId);
+      }
+      
       recognition.start();
     } catch (error) {
       console.error('Error starting recognition:', error);
     }
-  }, [isListening]);
+  }, [isListening, deviceId]);
 
   const stopListening = useCallback(() => {
     const recognition = recognitionRef.current;
