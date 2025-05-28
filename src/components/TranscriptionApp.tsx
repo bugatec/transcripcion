@@ -14,10 +14,10 @@ const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
   const [translationDirection, setTranslationDirection] = useState('es-en');
   const [translationText, setTranslationText] = useState('');
-  const [lastProcessedTranscript, setLastProcessedTranscript] = useState('');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const transcriptionBoxRef = useRef<HTMLDivElement>(null);
   const translationBoxRef = useRef<HTMLDivElement>(null);
+  const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { audioDevices, refreshDevices } = useAudioDevices();
   const { translateText, isTranslating } = useGoogleTranslate();
@@ -55,37 +55,44 @@ const TranscriptionApp = () => {
     return formattedText.trim();
   };
 
-  // Process translation when transcript changes and contains complete sentences
+  // Real-time translation with debouncing
   useEffect(() => {
-    const processTranslation = async () => {
-      if (transcript && transcript !== lastProcessedTranscript) {
-        // Check if the transcript ends with punctuation (complete sentence)
-        const hasCompleteSentence = /[.!?]$/.test(transcript.trim());
+    const processRealTimeTranslation = async () => {
+      if (transcript && transcript.trim()) {
+        console.log('Processing real-time translation for:', transcript);
         
-        if (hasCompleteSentence || !isListening) {
-          console.log('Processing complete transcript for translation');
-          
-          const sourceLanguage = translationDirection === 'es-en' ? 'es' : 'en';
-          const targetLanguage = translationDirection === 'es-en' ? 'en' : 'es';
-          
+        const sourceLanguage = translationDirection === 'es-en' ? 'es' : 'en';
+        const targetLanguage = translationDirection === 'es-en' ? 'en' : 'es';
+        
+        // Clear existing timeout
+        if (translationTimeoutRef.current) {
+          clearTimeout(translationTimeoutRef.current);
+        }
+        
+        // Set a small delay to avoid too many API calls
+        translationTimeoutRef.current = setTimeout(async () => {
           try {
             const translated = await translateText(transcript, sourceLanguage, targetLanguage);
             setTranslationText(translated);
           } catch (error) {
-            console.error('Translation error:', error);
+            console.error('Real-time translation error:', error);
             setTranslationText('Error en la traducción');
           }
-          
-          setLastProcessedTranscript(transcript);
-        }
+        }, 500); // 500ms delay to avoid excessive API calls
       } else if (!transcript) {
         setTranslationText('');
-        setLastProcessedTranscript('');
       }
     };
 
-    processTranslation();
-  }, [transcript, translationDirection, isListening, lastProcessedTranscript, translateText]);
+    processRealTimeTranslation();
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (translationTimeoutRef.current) {
+        clearTimeout(translationTimeoutRef.current);
+      }
+    };
+  }, [transcript, translationDirection, translateText]);
 
   // Auto-scroll for transcript box
   useEffect(() => {
@@ -126,7 +133,11 @@ const TranscriptionApp = () => {
   const handleReset = () => {
     resetTranscript();
     setTranslationText('');
-    setLastProcessedTranscript('');
+    
+    // Clear any pending translation timeout
+    if (translationTimeoutRef.current) {
+      clearTimeout(translationTimeoutRef.current);
+    }
   };
 
   const handleDeviceChange = (deviceId: string) => {
@@ -254,7 +265,7 @@ const TranscriptionApp = () => {
                     <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                   )}
                   <ArrowDown className="w-4 h-4" />
-                  <span className="text-sm font-medium">Traducción</span>
+                  <span className="text-sm font-medium">Traducción en tiempo real</span>
                 </div>
               </div>
               
@@ -271,7 +282,7 @@ const TranscriptionApp = () => {
                     <div className="text-center">
                       <ArrowDown className="w-12 h-12 mx-auto mb-4 opacity-30" />
                       <p className="text-lg">
-                        La traducción aparecerá aquí cuando termine la oración
+                        La traducción aparecerá en tiempo real mientras hablas
                       </p>
                     </div>
                   </div>
@@ -319,12 +330,6 @@ const TranscriptionApp = () => {
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500">
-          <p className="text-sm">
-            Funciona mejor en ambientes silenciosos • Compatible con Chrome, Edge y Safari
-          </p>
-          <p className="text-xs mt-1">
-            La traducción se procesa cuando terminas de hablar una oración completa
-          </p>
           <p className="text-xs mt-2 font-medium">
             Bugatecmx - Todos los derechos reservados 2025.
           </p>
