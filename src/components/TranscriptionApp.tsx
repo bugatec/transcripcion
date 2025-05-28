@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
   const [translationDirection, setTranslationDirection] = useState('es-en');
   const [translationText, setTranslationText] = useState('');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
   const transcriptionBoxRef = useRef<HTMLDivElement>(null);
   const translationBoxRef = useRef<HTMLDivElement>(null);
   const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -32,7 +31,7 @@ const TranscriptionApp = () => {
     stopListening,
     resetTranscript,
     requestMicrophonePermission
-  } = useSpeechRecognition(selectedLanguage, selectedDeviceId);
+  } = useSpeechRecognition(selectedLanguage, selectedDeviceId === 'default' ? '' : selectedDeviceId);
 
   const languages = [
     { code: 'es-ES', name: 'Español', flag: '🇪🇸' },
@@ -151,8 +150,8 @@ const TranscriptionApp = () => {
     console.log('Changing audio device to:', deviceId);
     setSelectedDeviceId(deviceId);
     
-    // Test the device
-    if (deviceId) {
+    // Test the device if it's not the default
+    if (deviceId !== 'default') {
       const isWorking = await testDevice(deviceId);
       if (!isWorking) {
         alert('El dispositivo seleccionado no parece estar funcionando correctamente. Intenta con otro dispositivo.');
@@ -201,7 +200,7 @@ const TranscriptionApp = () => {
             <p className="text-sm text-blue-700">
               <strong>Dispositivo móvil detectado:</strong> Asegúrate de permitir el acceso al micrófono cuando se solicite.
               {hasPermission === false && ' ⚠️ Permisos denegados - por favor recarga la página y permite el acceso.'}
-              {selectedDeviceId && ` Micrófono seleccionado: ${audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}`}
+              {selectedDeviceId && selectedDeviceId !== 'default' && ` Micrófono seleccionado: ${audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}`}
             </p>
           </div>
         )}
@@ -241,7 +240,7 @@ const TranscriptionApp = () => {
                     <SelectValue placeholder="Seleccionar micrófono" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Predeterminado</SelectItem>
+                    <SelectItem value="default">Predeterminado</SelectItem>
                     {audioDevices.map((device) => (
                       <SelectItem key={device.deviceId} value={device.deviceId}>
                         {device.label}
