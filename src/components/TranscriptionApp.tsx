@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, RotateCcw, Languages, ArrowDown, Headphones } from 'lucide-react';
+import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -19,16 +19,19 @@ const TranscriptionApp = () => {
   const translationBoxRef = useRef<HTMLDivElement>(null);
   const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { audioDevices, refreshDevices } = useAudioDevices();
+  const { audioDevices, isLoading: devicesLoading, refreshDevices, testDevice } = useAudioDevices();
   const { translateText, isTranslating } = useGoogleTranslate();
 
   const {
     transcript,
     isListening,
     isSupported,
+    hasPermission,
+    isMobile,
     startListening,
     stopListening,
-    resetTranscript
+    resetTranscript,
+    requestMicrophonePermission
   } = useSpeechRecognition(selectedLanguage, selectedDeviceId);
 
   const languages = [
@@ -144,8 +147,32 @@ const TranscriptionApp = () => {
     }
   };
 
-  const handleDeviceChange = (deviceId: string) => {
+  const handleDeviceChange = async (deviceId: string) => {
+    console.log('Changing audio device to:', deviceId);
     setSelectedDeviceId(deviceId);
+    
+    // Test the device
+    if (deviceId) {
+      const isWorking = await testDevice(deviceId);
+      if (!isWorking) {
+        alert('El dispositivo seleccionado no parece estar funcionando correctamente. Intenta con otro dispositivo.');
+      }
+    }
+  };
+
+  const handleMicrophoneClick = async () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      // Check permissions first on mobile
+      if (isMobile && hasPermission === null) {
+        const granted = await requestMicrophonePermission();
+        if (!granted) {
+          return;
+        }
+      }
+      startListening();
+    }
   };
 
   if (!isSupported) {
@@ -168,6 +195,17 @@ const TranscriptionApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Debug info for mobile */}
+        {isMobile && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-700">
+              <strong>Dispositivo móvil detectado:</strong> Asegúrate de permitir el acceso al micrófono cuando se solicite.
+              {hasPermission === false && ' ⚠️ Permisos denegados - por favor recarga la página y permite el acceso.'}
+              {selectedDeviceId && ` Micrófono seleccionado: ${audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}`}
+            </p>
+          </div>
+        )}
+
         {/* Translation Direction Selector */}
         <div className="flex justify-center mb-6">
           <Card className="p-4 shadow-md">
@@ -203,13 +241,23 @@ const TranscriptionApp = () => {
                     <SelectValue placeholder="Seleccionar micrófono" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Predeterminado</SelectItem>
                     {audioDevices.map((device) => (
                       <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Micrófono ${device.deviceId.slice(0, 8)}`}
+                        {device.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshDevices}
+                  disabled={devicesLoading}
+                  className="px-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${devicesLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </div>
           </Card>
@@ -300,13 +348,14 @@ const TranscriptionApp = () => {
         {/* Controls */}
         <div className="flex justify-center gap-4">
           <Button
-            onClick={isListening ? stopListening : startListening}
+            onClick={handleMicrophoneClick}
             size="lg"
             className={`px-8 py-6 text-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
               isListening
                 ? 'bg-red-500 hover:bg-red-600 shadow-red-200'
                 : 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
             } shadow-lg`}
+            disabled={hasPermission === false}
           >
             {isListening ? (
               <>
@@ -315,7 +364,9 @@ const TranscriptionApp = () => {
               </>
             ) : (
               <>
-                <Mic className="w-6 h-6 mr-2" />
+                <div className="w-6 h-6 mr-2 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-3 h-3 bg-current rounded-full"></div>
+                </div>
                 Iniciar
               </>
             )}
