@@ -36,12 +36,12 @@ const TranscriptionApp = () => {
     { code: 'en-US', name: 'English', flag: '🇺🇸' }
   ];
 
-  // Format text into sentences for better readability
+  // Format text into sentences with line breaks for better readability
   const formatTextIntoSentences = (text: string) => {
     if (!text) return '';
     
-    // Split by sentence-ending punctuation and filter out empty strings
-    const sentences = text.split(/([.!?]+)/).filter(s => s.trim());
+    // Split by sentence-ending punctuation, colons, and question marks
+    const sentences = text.split(/([.!?:]+)/).filter(s => s.trim());
     
     let formattedText = '';
     for (let i = 0; i < sentences.length; i += 2) {
@@ -52,7 +52,11 @@ const TranscriptionApp = () => {
       }
     }
     
-    return formattedText.trim();
+    // Also split by natural breaks (like lists or long pauses)
+    return formattedText
+      .replace(/,\s+([A-Z])/g, ',\n$1') // Break after commas followed by capital letters
+      .replace(/:\s+/g, ':\n') // Break after colons
+      .trim();
   };
 
   // Real-time translation with debouncing
@@ -230,7 +234,7 @@ const TranscriptionApp = () => {
               
               <div 
                 ref={transcriptionBoxRef}
-                className="flex-1 overflow-y-auto"
+                className="flex-1 overflow-y-auto scroll-smooth"
               >
                 {transcript ? (
                   <div className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
@@ -239,13 +243,14 @@ const TranscriptionApp = () => {
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-400">
                     <div className="text-center">
-                      <Mic className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg">
-                        {isListening 
-                          ? "Comienza a hablar..." 
-                          : "Presiona el botón de micrófono para empezar"
-                        }
-                      </p>
+                      <div className="text-center">
+                        <p className="text-lg">
+                          {isListening 
+                            ? "Comienza a hablar..." 
+                            : "Presiona el botón de micrófono para empezar"
+                          }
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -271,7 +276,7 @@ const TranscriptionApp = () => {
               
               <div 
                 ref={translationBoxRef}
-                className="flex-1 overflow-y-auto"
+                className="flex-1 overflow-y-auto scroll-smooth"
               >
                 {translationText ? (
                   <div className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
