@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw } from 'lucide-react';
+import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw, Moon, Sun, Download, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useGoogleTranslate } from '../hooks/useGoogleTranslate';
 import { useAudioDevices } from '../hooks/useAudioDevices';
+import { useTheme } from '../hooks/useTheme';
+import { useToast } from '@/hooks/use-toast';
 import ArrowRight from './ArrowRight';
 
 const TranscriptionApp = () => {
@@ -14,12 +16,17 @@ const TranscriptionApp = () => {
   const [translationDirection, setTranslationDirection] = useState('es-en');
   const [translationText, setTranslationText] = useState('');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
+  const [fullTranscript, setFullTranscript] = useState(''); // Transcripción completa acumulada
+  const [isRecording, setIsRecording] = useState(false); // Estado de grabación
+  
   const transcriptionBoxRef = useRef<HTMLDivElement>(null);
   const translationBoxRef = useRef<HTMLDivElement>(null);
   const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { audioDevices, isLoading: devicesLoading, refreshDevices, testDevice } = useAudioDevices();
   const { translateText, isTranslating } = useGoogleTranslate();
+  const { theme, toggleTheme } = useTheme();
+  const { toast } = useToast();
 
   const {
     transcript,
@@ -37,6 +44,16 @@ const TranscriptionApp = () => {
     { code: 'es-ES', name: 'Español', flag: '🇪🇸' },
     { code: 'en-US', name: 'English', flag: '🇺🇸' }
   ];
+
+  // Acumular transcripción completa
+  useEffect(() => {
+    if (transcript && isRecording) {
+      setFullTranscript(prev => {
+        const newText = prev ? prev + ' ' + transcript : transcript;
+        return newText;
+      });
+    }
+  }, [transcript, isRecording]);
 
   // Format text into sentences with line breaks for better readability
   const formatTextIntoSentences = (text: string) => {
@@ -102,15 +119,17 @@ const TranscriptionApp = () => {
 
   // Auto-scroll for transcript box
   useEffect(() => {
-    if (transcriptionBoxRef.current) {
-      transcriptionBoxRef.current.scrollTop = transcriptionBoxRef.current.scrollHeight;
+    if (transcriptionBoxRef.current && transcript) {
+      const element = transcriptionBoxRef.current;
+      element.scrollTop = element.scrollHeight;
     }
   }, [transcript]);
 
   // Auto-scroll for translation box
   useEffect(() => {
-    if (translationBoxRef.current) {
-      translationBoxRef.current.scrollTop = translationBoxRef.current.scrollHeight;
+    if (translationBoxRef.current && translationText) {
+      const element = translationBoxRef.current;
+      element.scrollTop = element.scrollHeight;
     }
   }, [translationText]);
 
@@ -139,6 +158,7 @@ const TranscriptionApp = () => {
   const handleReset = () => {
     resetTranscript();
     setTranslationText('');
+    setFullTranscript(''); // Limpiar transcripción completa
     
     // Clear any pending translation timeout
     if (translationTimeoutRef.current) {
@@ -166,8 +186,10 @@ const TranscriptionApp = () => {
     if (isListening) {
       console.log('🛑 Stopping listening...');
       stopListening();
+      setIsRecording(false);
     } else {
       console.log('🚀 Starting to listen...');
+      setIsRecording(true);
       
       // For mobile devices, always check permissions first
       if (isMobile) {
@@ -178,6 +200,7 @@ const TranscriptionApp = () => {
           if (!granted) {
             console.error('❌ Permission denied');
             alert('❌ Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.');
+            setIsRecording(false);
             return;
           }
         }
@@ -188,6 +211,55 @@ const TranscriptionApp = () => {
       }
       
       startListening();
+    }
+  };
+
+  const downloadTranscript = () => {
+    if (!fullTranscript.trim()) {
+      toast({
+        title: "No hay transcripción",
+        description: "No hay texto para descargar. Inicia una grabación primero.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const element = document.createElement("a");
+    const file = new Blob([fullTranscript], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `transcripcion-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+
+    toast({
+      title: "Descarga completa",
+      description: "La transcripción se ha descargado exitosamente.",
+    });
+  };
+
+  const copyTranscript = async () => {
+    if (!fullTranscript.trim()) {
+      toast({
+        title: "No hay transcripción",
+        description: "No hay texto para copiar. Inicia una grabación primero.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(fullTranscript);
+      toast({
+        title: "Copiado al portapapeles",
+        description: "La transcripción se ha copiado exitosamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error al copiar",
+        description: "No se pudo copiar al portapapeles.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -209,22 +281,74 @@ const TranscriptionApp = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Header with Theme Toggle */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">
+            Transcriptor de Voz
+          </h1>
+          <div className="flex items-center gap-4">
+            {/* Download/Copy Buttons */}
+            <div className="flex gap-2">
+              <Button
+                onClick={copyTranscript}
+                variant="outline"
+                size="sm"
+                disabled={!fullTranscript.trim()}
+                className="flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Copiar
+              </Button>
+              <Button
+                onClick={downloadTranscript}
+                variant="outline"
+                size="sm"
+                disabled={!fullTranscript.trim()}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Descargar
+              </Button>
+            </div>
+            
+            {/* Theme Toggle */}
+            <Button
+              onClick={toggleTheme}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4" />
+                  Claro
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4" />
+                  Oscuro
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
         {/* Enhanced debug info for mobile */}
         {isMobile && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-700 mb-2">
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
               <strong>📱 Dispositivo móvil detectado</strong>
             </p>
-            <div className="text-xs text-blue-600 space-y-1">
+            <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
               <div>🔐 Permisos: {hasPermission === null ? 'No solicitados' : hasPermission ? '✅ Concedidos' : '❌ Denegados'}</div>
               <div>🎤 Estado: {isListening ? '🟢 Escuchando' : '🔴 Detenido'}</div>
               <div>🔧 Micrófono: {selectedDeviceId === 'default' ? 'Predeterminado' : audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}</div>
               <div>📊 Dispositivos disponibles: {audioDevices.length}</div>
               {hasPermission === false && (
-                <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
-                  <p className="text-red-700 text-xs">
+                <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/50 rounded border border-red-300 dark:border-red-800">
+                  <p className="text-red-700 dark:text-red-300 text-xs">
                     ⚠️ <strong>Sin permisos de micrófono:</strong> Ve a la configuración del navegador → Privacidad → Micrófono → Permite el acceso para este sitio
                   </p>
                 </div>
@@ -235,11 +359,11 @@ const TranscriptionApp = () => {
 
         {/* Translation Direction Selector */}
         <div className="flex justify-center mb-6">
-          <Card className="p-4 shadow-md">
+          <Card className="p-4 shadow-md dark:bg-gray-800">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex items-center gap-2">
                 <Languages className="w-5 h-5 text-blue-500" />
-                <span className="font-medium text-gray-700">Traducción:</span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Traducción:</span>
               </div>
               
               <ToggleGroup 
@@ -293,10 +417,10 @@ const TranscriptionApp = () => {
         {/* Full-width Transcription and Translation Boxes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Transcription Box */}
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm h-[70vh]">
+          <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-[70vh]">
             <div className="p-6 h-full flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                   {translationDirection === 'es-en' ? 'Texto Original (Español)' : 'Original Text (English)'}
                 </h2>
                 {isListening && (
@@ -312,11 +436,11 @@ const TranscriptionApp = () => {
                 className="flex-1 overflow-y-auto scroll-smooth"
               >
                 {transcript ? (
-                  <div className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
+                  <div className="text-lg leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                     {formatTextIntoSentences(transcript)}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
                     <div className="text-center">
                       <div className="text-center">
                         <p className="text-lg">
@@ -334,10 +458,10 @@ const TranscriptionApp = () => {
           </Card>
           
           {/* Translation Box */}
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm h-[70vh]">
+          <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-[70vh]">
             <div className="p-6 h-full flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                   {translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
                 </h2>
                 <div className="flex items-center gap-2 text-blue-500">
@@ -354,11 +478,11 @@ const TranscriptionApp = () => {
                 className="flex-1 overflow-y-auto scroll-smooth"
               >
                 {translationText ? (
-                  <div className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
+                  <div className="text-lg leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                     {formatTextIntoSentences(translationText)}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
                     <div className="text-center">
                       <ArrowDown className="w-12 h-12 mx-auto mb-4 opacity-30" />
                       <p className="text-lg">
@@ -403,7 +527,7 @@ const TranscriptionApp = () => {
             onClick={handleReset}
             variant="outline"
             size="lg"
-            className="px-6 py-6 text-lg font-semibold border-2 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
+            className="px-6 py-6 text-lg font-semibold border-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300 transform hover:scale-105"
             disabled={!transcript}
           >
             <RotateCcw className="w-5 h-5 mr-2" />
@@ -413,18 +537,19 @@ const TranscriptionApp = () => {
 
         {/* Debug Console for Mobile */}
         {isMobile && (
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg border">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">🔧 Información de debug móvil</h3>
-            <div className="text-xs text-gray-600 font-mono space-y-1">
+          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border dark:border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">🔧 Información de debug móvil</h3>
+            <div className="text-xs text-gray-600 dark:text-gray-400 font-mono space-y-1">
               <div>User Agent: {navigator.userAgent.slice(0, 50)}...</div>
               <div>Idioma: {selectedLanguage}</div>
               <div>Transcripción activa: {transcript ? 'Sí (' + transcript.length + ' chars)' : 'No'}</div>
+              <div>Transcripción completa: {fullTranscript ? 'Sí (' + fullTranscript.length + ' chars)' : 'No'}</div>
             </div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-12 text-gray-500">
+        <div className="text-center mt-12 text-gray-500 dark:text-gray-400">
           <p className="text-xs mt-2 font-medium">
             Bugatecmx - Todos los derechos reservados 2025.
           </p>
