@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw, Moon, Sun, Download, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
   const [translationDirection, setTranslationDirection] = useState('es-en');
   const [translationText, setTranslationText] = useState('');
+  const [fullTranslationText, setFullTranslationText] = useState(''); // Nueva variable para la traducción completa
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
   const [fullTranscript, setFullTranscript] = useState(''); // Transcripción completa acumulada
   const [isRecording, setIsRecording] = useState(false); // Estado de grabación
@@ -45,13 +47,13 @@ const TranscriptionApp = () => {
     { code: 'en-US', name: 'English', flag: '🇺🇸' }
   ];
 
-  // Acumular transcripción completa
+  // Acumular transcripción completa sin repeticiones
   useEffect(() => {
     if (transcript && isRecording) {
-      setFullTranscript(prev => {
-        const newText = prev ? prev + ' ' + transcript : transcript;
-        return newText;
-      });
+      // Solo agregar si es diferente al texto actual
+      if (transcript !== fullTranscript) {
+        setFullTranscript(transcript);
+      }
     }
   }, [transcript, isRecording]);
 
@@ -97,6 +99,8 @@ const TranscriptionApp = () => {
           try {
             const translated = await translateText(transcript, sourceLanguage, targetLanguage);
             setTranslationText(translated);
+            // Actualizar la traducción completa también
+            setFullTranslationText(translated);
           } catch (error) {
             console.error('Real-time translation error:', error);
             setTranslationText('Error en la traducción');
@@ -149,7 +153,10 @@ const TranscriptionApp = () => {
         const sourceLanguage = value === 'es-en' ? 'es' : 'en';
         const targetLanguage = value === 'es-en' ? 'en' : 'es';
         translateText(transcript, sourceLanguage, targetLanguage)
-          .then(setTranslationText)
+          .then((translated) => {
+            setTranslationText(translated);
+            setFullTranslationText(translated);
+          })
           .catch(() => setTranslationText('Error en la traducción'));
       }
     }
@@ -159,6 +166,7 @@ const TranscriptionApp = () => {
     resetTranscript();
     setTranslationText('');
     setFullTranscript(''); // Limpiar transcripción completa
+    setFullTranslationText(''); // Limpiar traducción completa
     
     // Clear any pending translation timeout
     if (translationTimeoutRef.current) {
@@ -214,45 +222,50 @@ const TranscriptionApp = () => {
     }
   };
 
-  const downloadTranscript = () => {
-    if (!fullTranscript.trim()) {
+  const downloadTranscript = (type: 'original' | 'translation') => {
+    const text = type === 'original' ? fullTranscript : fullTranslationText;
+    const fileName = type === 'original' ? 'transcripcion-original' : 'traduccion';
+    
+    if (!text.trim()) {
       toast({
-        title: "No hay transcripción",
-        description: "No hay texto para descargar. Inicia una grabación primero.",
+        title: "No hay contenido",
+        description: `No hay ${type === 'original' ? 'transcripción' : 'traducción'} para descargar.`,
         variant: "destructive"
       });
       return;
     }
 
     const element = document.createElement("a");
-    const file = new Blob([fullTranscript], { type: 'text/plain' });
+    const file = new Blob([text], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `transcripcion-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    element.download = `${fileName}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
 
     toast({
       title: "Descarga completa",
-      description: "La transcripción se ha descargado exitosamente.",
+      description: `${type === 'original' ? 'La transcripción' : 'La traducción'} se ha descargado exitosamente.`,
     });
   };
 
-  const copyTranscript = async () => {
-    if (!fullTranscript.trim()) {
+  const copyText = async (type: 'original' | 'translation') => {
+    const text = type === 'original' ? fullTranscript : fullTranslationText;
+    
+    if (!text.trim()) {
       toast({
-        title: "No hay transcripción",
-        description: "No hay texto para copiar. Inicia una grabación primero.",
+        title: "No hay contenido",
+        description: `No hay ${type === 'original' ? 'transcripción' : 'traducción'} para copiar.`,
         variant: "destructive"
       });
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(fullTranscript);
+      await navigator.clipboard.writeText(text);
       toast({
         title: "Copiado al portapapeles",
-        description: "La transcripción se ha copiado exitosamente.",
+        description: `${type === 'original' ? 'La transcripción' : 'La traducción'} se ha copiado exitosamente.`,
       });
     } catch (error) {
       toast({
@@ -289,30 +302,6 @@ const TranscriptionApp = () => {
             Transcriptor de Voz
           </h1>
           <div className="flex items-center gap-4">
-            {/* Download/Copy Buttons */}
-            <div className="flex gap-2">
-              <Button
-                onClick={copyTranscript}
-                variant="outline"
-                size="sm"
-                disabled={!fullTranscript.trim()}
-                className="flex items-center gap-2"
-              >
-                <Copy className="w-4 h-4" />
-                Copiar
-              </Button>
-              <Button
-                onClick={downloadTranscript}
-                variant="outline"
-                size="sm"
-                disabled={!fullTranscript.trim()}
-                className="flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Descargar
-              </Button>
-            </div>
-            
             {/* Theme Toggle */}
             <Button
               onClick={toggleTheme}
@@ -423,12 +412,33 @@ const TranscriptionApp = () => {
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                   {translationDirection === 'es-en' ? 'Texto Original (Español)' : 'Original Text (English)'}
                 </h2>
-                {isListening && (
-                  <div className="flex items-center gap-2 text-red-500">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Escuchando...</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {isListening && (
+                    <div className="flex items-center gap-2 text-red-500 mr-4">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium">Escuchando...</span>
+                    </div>
+                  )}
+                  {/* Botones de descarga/copia para texto original */}
+                  <Button
+                    onClick={() => copyText('original')}
+                    variant="outline"
+                    size="sm"
+                    disabled={!fullTranscript.trim()}
+                    className="flex items-center gap-1 px-2"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    onClick={() => downloadTranscript('original')}
+                    variant="outline"
+                    size="sm"
+                    disabled={!fullTranscript.trim()}
+                    className="flex items-center gap-1 px-2"
+                  >
+                    <Download className="w-3 h-3" />
+                  </Button>
+                </div>
               </div>
               
               <div 
@@ -464,12 +474,33 @@ const TranscriptionApp = () => {
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                   {translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
                 </h2>
-                <div className="flex items-center gap-2 text-blue-500">
-                  {isTranslating && (
-                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  )}
-                  <ArrowDown className="w-4 h-4" />
-                  <span className="text-sm font-medium">Traducción en tiempo real</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-blue-500 mr-4">
+                    {isTranslating && (
+                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                    )}
+                    <ArrowDown className="w-4 h-4" />
+                    <span className="text-sm font-medium">Traducción en tiempo real</span>
+                  </div>
+                  {/* Botones de descarga/copia para traducción */}
+                  <Button
+                    onClick={() => copyText('translation')}
+                    variant="outline"
+                    size="sm"
+                    disabled={!fullTranslationText.trim()}
+                    className="flex items-center gap-1 px-2"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    onClick={() => downloadTranscript('translation')}
+                    variant="outline"
+                    size="sm"
+                    disabled={!fullTranslationText.trim()}
+                    className="flex items-center gap-1 px-2"
+                  >
+                    <Download className="w-3 h-3" />
+                  </Button>
                 </div>
               </div>
               
