@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface SpeechRecognitionEvent extends Event {
@@ -50,8 +51,6 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/.test(navigator.userAgent);
 
-  console.log('Device detection:', { isMobile, isIOS, isAndroid });
-
   useEffect(() => {
     // Check if browser supports speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -59,10 +58,8 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     if (SpeechRecognition) {
       setIsSupported(true);
       recognitionRef.current = new SpeechRecognition();
-      console.log('Speech recognition initialized successfully');
     } else {
       setIsSupported(false);
-      console.log('Speech recognition not supported in this browser');
     }
   }, []);
 
@@ -70,11 +67,9 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
-    // Mobile-specific configuration
+    // Mobile-specific configuration - optimized for Capacitor
     if (isMobile) {
-      console.log('Configuring for mobile device');
-      // For mobile, use shorter sessions to avoid timeout issues
-      recognition.continuous = false; // Start with false for better mobile compatibility
+      recognition.continuous = false; // Better for mobile compatibility
       recognition.interimResults = true;
     } else {
       recognition.continuous = true;
@@ -84,37 +79,16 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     recognition.lang = language;
 
     recognition.onstart = () => {
-      console.log('🎤 Speech recognition started successfully');
       setIsListening(true);
       setHasPermission(true);
     };
 
-    recognition.onaudiostart = () => {
-      console.log('🔊 Audio capture started');
-    };
-
-    recognition.onspeechstart = () => {
-      console.log('🗣️ Speech detected');
-    };
-
-    recognition.onspeechend = () => {
-      console.log('🔇 Speech ended');
-    };
-
-    recognition.onaudioend = () => {
-      console.log('🔇 Audio capture ended');
-    };
-
     recognition.onend = () => {
-      console.log('❌ Speech recognition ended');
       setIsListening(false);
       
       // Clean up media stream
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          console.log('Stopping audio track:', track.label);
-          track.stop();
-        });
+        streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
 
@@ -123,30 +97,14 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
         clearTimeout(restartTimeoutRef.current);
         restartTimeoutRef.current = null;
       }
-
-      // Auto-restart for mobile devices (they often stop after short periods)
-      if (isMobile && recognition && isListening) {
-        console.log('🔄 Auto-restarting recognition for mobile');
-        setTimeout(() => {
-          if (recognitionRef.current && !isListening) {
-            try {
-              recognitionRef.current.start();
-            } catch (error) {
-              console.error('Error restarting recognition:', error);
-            }
-          }
-        }, 100);
-      }
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      console.log('📝 Speech recognition result received');
       let interimTranscript = '';
       let finalTranscript = finalTranscriptRef.current;
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcriptPart = event.results[i][0].transcript;
-        console.log('Transcript part:', transcriptPart, 'Final:', event.results[i].isFinal);
         
         if (event.results[i].isFinal) {
           // Add punctuation and proper sentence formatting
@@ -168,7 +126,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
 
       finalTranscriptRef.current = finalTranscript;
       
-      // Show final transcript + current interim (in gray or different style)
+      // Show final transcript + current interim
       const displayTranscript = finalTranscript + 
         (interimTranscript ? (finalTranscript ? ' ' : '') + interimTranscript : '');
       
@@ -176,18 +134,20 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('❌ Speech recognition error:', event.error, event.message);
       setIsListening(false);
       
-      // Handle specific errors
+      // Handle specific errors for mobile apps
       if (event.error === 'not-allowed') {
         setHasPermission(false);
-        alert('⚠️ Permisos de micrófono denegados. Por favor, permite el acceso al micrófono y recarga la página.');
-      } else if (event.error === 'no-speech') {
-        console.log('🔇 No speech detected');
-        // For mobile, this is more common and we should handle it gracefully
+        // For Capacitor apps, show more specific permission message
         if (isMobile) {
-          console.log('📱 Mobile device - this is normal, trying to restart...');
+          alert('⚠️ Permisos de micrófono denegados. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
+        } else {
+          alert('⚠️ Permisos de micrófono denegados. Permite el acceso al micrófono en la configuración del navegador.');
+        }
+      } else if (event.error === 'no-speech') {
+        // Handle gracefully on mobile
+        if (isMobile) {
           setTimeout(() => {
             if (recognitionRef.current && isListening) {
               try {
@@ -199,15 +159,9 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
           }, 500);
         }
       } else if (event.error === 'audio-capture') {
-        console.error('🎤 Audio capture error - microphone may not be working properly');
         alert('❌ Error de captura de audio. Verifica que el micrófono esté funcionando correctamente.');
       } else if (event.error === 'network') {
-        console.error('🌐 Network error during speech recognition');
         alert('❌ Error de red. Verifica tu conexión a internet.');
-      } else if (event.error === 'aborted') {
-        console.log('⏹️ Speech recognition was aborted');
-      } else {
-        console.error('❓ Unknown speech recognition error:', event.error);
       }
     };
 
@@ -227,9 +181,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
 
   const requestMicrophonePermission = useCallback(async () => {
     try {
-      console.log('🎤 Requesting microphone permission...');
-      
-      // For mobile devices, be more specific about audio constraints
+      // Enhanced mobile permission handling for Capacitor
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
@@ -242,47 +194,32 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
           sampleRate: 44100
         })
       };
-
-      console.log('🔧 Audio constraints:', audioConstraints);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: audioConstraints
       });
       
-      console.log('✅ Microphone permission granted');
-      console.log('📊 Stream details:', {
-        active: stream.active,
-        tracks: stream.getTracks().length,
-        audioTracks: stream.getAudioTracks().map(track => ({
-          label: track.label,
-          enabled: track.enabled,
-          muted: track.muted,
-          readyState: track.readyState,
-          settings: track.getSettings()
-        }))
-      });
-      
-      // Keep stream for a moment to test, then stop
+      // Test stream briefly then stop
       setTimeout(() => {
         stream.getTracks().forEach(track => track.stop());
-        console.log('🛑 Permission test stream stopped');
       }, 1000);
       
       setHasPermission(true);
       return true;
     } catch (error) {
-      console.error('❌ Error requesting microphone permission:', error);
       setHasPermission(false);
       
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') {
-          alert('❌ Permisos de micrófono denegados. Por favor, permite el acceso al micrófono en la configuración del navegador.');
+          if (isMobile) {
+            alert('❌ Permisos de micrófono denegados. Ve a Configuración de la app y activa el micrófono.');
+          } else {
+            alert('❌ Permisos de micrófono denegados. Permite el acceso en la configuración del navegador.');
+          }
         } else if (error.name === 'NotFoundError') {
-          alert('❌ No se encontró ningún micrófono. Verifica que esté conectado correctamente.');
+          alert('❌ No se encontró micrófono. Verifica que esté conectado.');
         } else if (error.name === 'OverconstrainedError') {
-          alert('❌ El dispositivo de audio seleccionado no cumple con los requisitos. Prueba con otro micrófono.');
-        } else {
-          alert(`❌ Error de micrófono: ${error.message}`);
+          alert('❌ El micrófono seleccionado no es compatible. Prueba con otro.');
         }
       }
       return false;
@@ -291,33 +228,22 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
 
   const startListening = useCallback(async () => {
     const recognition = recognitionRef.current;
-    if (!recognition || isListening) {
-      console.log('⚠️ Cannot start: recognition not available or already listening');
-      return;
-    }
+    if (!recognition || isListening) return;
 
     try {
-      console.log('🚀 Starting speech recognition...');
-      
       // For mobile devices, always request permission first
       if (isMobile || hasPermission === null) {
-        console.log('📱 Mobile device detected or no permission - requesting access...');
         const granted = await requestMicrophonePermission();
-        if (!granted) {
-          console.error('❌ Permission denied, cannot start');
-          return;
-        }
+        if (!granted) return;
       }
 
-      // Small delay before starting recognition on mobile
+      // Mobile-specific delay for better compatibility
       if (isMobile) {
-        console.log('⏳ Adding delay for mobile compatibility...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      // Try to get media stream with specified device
+      // Configure device if specified
       if (deviceId && deviceId !== '') {
-        console.log('🎯 Attempting to use specific microphone device:', deviceId);
         try {
           const constraints: MediaStreamConstraints = {
             audio: {
@@ -335,10 +261,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
           };
           
           streamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
-          console.log('✅ Successfully connected to specific microphone');
-          
         } catch (error) {
-          console.warn('⚠️ Could not use specific device, falling back to default:', error);
           // Fall back to default microphone
           streamRef.current = await navigator.mediaDevices.getUserMedia({ 
             audio: {
@@ -356,23 +279,21 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
         }
       }
       
-      console.log('🎤 Attempting to start speech recognition...');
       recognition.start();
       
     } catch (error) {
-      console.error('❌ Error starting recognition:', error);
       setIsListening(false);
       
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') {
           setHasPermission(false);
-          alert('❌ Permisos de micrófono denegados. Ve a la configuración del navegador y permite el acceso al micrófono para este sitio.');
+          if (isMobile) {
+            alert('❌ Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
+          } else {
+            alert('❌ Ve a configuración del navegador y permite el acceso al micrófono.');
+          }
         } else if (error.name === 'NotFoundError') {
-          alert('❌ No se encontró ningún micrófono. Verifica que esté conectado correctamente.');
-        } else if (error.name === 'InvalidStateError') {
-          console.log('⚠️ Recognition already started or in invalid state');
-        } else {
-          alert(`❌ Error al acceder al micrófono: ${error.message}`);
+          alert('❌ No se encontró micrófono. Verifica la conexión.');
         }
       }
     }
@@ -380,13 +301,8 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
 
   const stopListening = useCallback(() => {
     const recognition = recognitionRef.current;
-    if (!recognition || !isListening) {
-      console.log('⚠️ Cannot stop: not currently listening');
-      return;
-    }
+    if (!recognition || !isListening) return;
 
-    console.log('🛑 Stopping speech recognition...');
-    
     // Clear any pending restart timeout
     if (restartTimeoutRef.current) {
       clearTimeout(restartTimeoutRef.current);
@@ -397,7 +313,6 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
   }, [isListening]);
 
   const resetTranscript = useCallback(() => {
-    console.log('🔄 Resetting transcript');
     setTranscript('');
     finalTranscriptRef.current = '';
   }, []);

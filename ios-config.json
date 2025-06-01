@@ -1,0 +1,8 @@
+
+{
+  "NSMicrophoneUsageDescription": "Esta aplicación necesita acceso al micrófono para transcribir tu voz en tiempo real.",
+  "NSCameraUsageDescription": "Esta aplicación no usa la cámara.",
+  "CFBundleDisplayName": "Transcripción",
+  "CFBundleShortVersionString": "1.0.0",
+  "CFBundleVersion": "1"
+}
