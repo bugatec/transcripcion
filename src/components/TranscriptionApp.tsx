@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw, Moon, Sun, Download, Copy } from 'lucide-react';
+import { MicOff, RotateCcw, Languages, ArrowDown, Headphones, RefreshCw, Moon, Sun, Download, Copy, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -16,10 +15,11 @@ const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
   const [translationDirection, setTranslationDirection] = useState('es-en');
   const [translationText, setTranslationText] = useState('');
-  const [fullTranslationText, setFullTranslationText] = useState(''); // Nueva variable para la traducción completa
+  const [fullTranslationText, setFullTranslationText] = useState('');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
-  const [fullTranscript, setFullTranscript] = useState(''); // Transcripción completa acumulada
-  const [isRecording, setIsRecording] = useState(false); // Estado de grabación
+  const [fullTranscript, setFullTranscript] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const transcriptionBoxRef = useRef<HTMLDivElement>(null);
   const translationBoxRef = useRef<HTMLDivElement>(null);
@@ -165,8 +165,8 @@ const TranscriptionApp = () => {
   const handleReset = () => {
     resetTranscript();
     setTranslationText('');
-    setFullTranscript(''); // Limpiar transcripción completa
-    setFullTranslationText(''); // Limpiar traducción completa
+    setFullTranscript('');
+    setFullTranslationText('');
     
     // Clear any pending translation timeout
     if (translationTimeoutRef.current) {
@@ -296,12 +296,12 @@ const TranscriptionApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header with Theme Toggle */}
+        {/* Header with Theme Toggle - Hidden title on mobile */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 hidden md:block">
             Transcriptor de Voz
           </h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-end">
             {/* Theme Toggle */}
             <Button
               onClick={toggleTheme}
@@ -321,30 +321,21 @@ const TranscriptionApp = () => {
                 </>
               )}
             </Button>
+            
+            {/* Expand button for mobile */}
+            {isMobile && (
+              <Button
+                onClick={() => setIsExpanded(!isExpanded)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Expand className="w-4 h-4" />
+                {isExpanded ? 'Contraer' : 'Expandir'}
+              </Button>
+            )}
           </div>
         </div>
-
-        {/* Enhanced debug info for mobile */}
-        {isMobile && (
-          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
-              <strong>📱 Dispositivo móvil detectado</strong>
-            </p>
-            <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
-              <div>🔐 Permisos: {hasPermission === null ? 'No solicitados' : hasPermission ? '✅ Concedidos' : '❌ Denegados'}</div>
-              <div>🎤 Estado: {isListening ? '🟢 Escuchando' : '🔴 Detenido'}</div>
-              <div>🔧 Micrófono: {selectedDeviceId === 'default' ? 'Predeterminado' : audioDevices.find(d => d.deviceId === selectedDeviceId)?.label || 'Desconocido'}</div>
-              <div>📊 Dispositivos disponibles: {audioDevices.length}</div>
-              {hasPermission === false && (
-                <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/50 rounded border border-red-300 dark:border-red-800">
-                  <p className="text-red-700 dark:text-red-300 text-xs">
-                    ⚠️ <strong>Sin permisos de micrófono:</strong> Ve a la configuración del navegador → Privacidad → Micrófono → Permite el acceso para este sitio
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Translation Direction Selector */}
         <div className="flex justify-center mb-6">
@@ -373,8 +364,8 @@ const TranscriptionApp = () => {
                 </ToggleGroupItem>
               </ToggleGroup>
 
-              {/* Audio Device Selector */}
-              <div className="flex items-center gap-2">
+              {/* Audio Device Selector - Hidden on mobile when expanded */}
+              <div className={`flex items-center gap-2 ${isMobile && isExpanded ? 'hidden' : ''}`}>
                 <Headphones className="w-5 h-5 text-blue-500" />
                 <Select value={selectedDeviceId} onValueChange={handleDeviceChange}>
                   <SelectTrigger className="w-[200px]">
@@ -404,9 +395,15 @@ const TranscriptionApp = () => {
         </div>
 
         {/* Full-width Transcription and Translation Boxes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className={`grid gap-6 mb-8 ${
+          isMobile && isExpanded 
+            ? 'grid-cols-1' 
+            : 'grid-cols-1 lg:grid-cols-2'
+        }`}>
           {/* Transcription Box */}
-          <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-[70vh]">
+          <Card className={`shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm ${
+            isMobile && isExpanded ? 'h-[80vh]' : 'h-[70vh]'
+          }`}>
             <div className="p-6 h-full flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
@@ -467,64 +464,66 @@ const TranscriptionApp = () => {
             </div>
           </Card>
           
-          {/* Translation Box */}
-          <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-[70vh]">
-            <div className="p-6 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                  {translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
-                </h2>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 text-blue-500 mr-4">
-                    {isTranslating && (
-                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                    )}
-                    <ArrowDown className="w-4 h-4" />
-                    <span className="text-sm font-medium">Traducción en tiempo real</span>
+          {/* Translation Box - Hidden on mobile when expanded to single column */}
+          {(!isMobile || !isExpanded) && (
+            <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-[70vh]">
+              <div className="p-6 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                    {translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-blue-500 mr-4">
+                      {isTranslating && (
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                      )}
+                      <ArrowDown className="w-4 h-4" />
+                      <span className="text-sm font-medium">Traducción en tiempo real</span>
+                    </div>
+                    {/* Botones de descarga/copia para traducción */}
+                    <Button
+                      onClick={() => copyText('translation')}
+                      variant="outline"
+                      size="sm"
+                      disabled={!fullTranslationText.trim()}
+                      className="flex items-center gap-1 px-2"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      onClick={() => downloadTranscript('translation')}
+                      variant="outline"
+                      size="sm"
+                      disabled={!fullTranslationText.trim()}
+                      className="flex items-center gap-1 px-2"
+                    >
+                      <Download className="w-3 h-3" />
+                    </Button>
                   </div>
-                  {/* Botones de descarga/copia para traducción */}
-                  <Button
-                    onClick={() => copyText('translation')}
-                    variant="outline"
-                    size="sm"
-                    disabled={!fullTranslationText.trim()}
-                    className="flex items-center gap-1 px-2"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    onClick={() => downloadTranscript('translation')}
-                    variant="outline"
-                    size="sm"
-                    disabled={!fullTranslationText.trim()}
-                    className="flex items-center gap-1 px-2"
-                  >
-                    <Download className="w-3 h-3" />
-                  </Button>
+                </div>
+                
+                <div 
+                  ref={translationBoxRef}
+                  className="flex-1 overflow-y-auto scroll-smooth"
+                >
+                  {translationText ? (
+                    <div className="text-lg leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                      {formatTextIntoSentences(translationText)}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                      <div className="text-center">
+                        <ArrowDown className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                        <p className="text-lg">
+                          La traducción aparecerá en tiempo real mientras hablas
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <div 
-                ref={translationBoxRef}
-                className="flex-1 overflow-y-auto scroll-smooth"
-              >
-                {translationText ? (
-                  <div className="text-lg leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                    {formatTextIntoSentences(translationText)}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
-                    <div className="text-center">
-                      <ArrowDown className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg">
-                        La traducción aparecerá en tiempo real mientras hablas
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
 
         {/* Controls */}
@@ -565,19 +564,6 @@ const TranscriptionApp = () => {
             Limpiar
           </Button>
         </div>
-
-        {/* Debug Console for Mobile */}
-        {isMobile && (
-          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border dark:border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">🔧 Información de debug móvil</h3>
-            <div className="text-xs text-gray-600 dark:text-gray-400 font-mono space-y-1">
-              <div>User Agent: {navigator.userAgent.slice(0, 50)}...</div>
-              <div>Idioma: {selectedLanguage}</div>
-              <div>Transcripción activa: {transcript ? 'Sí (' + transcript.length + ' chars)' : 'No'}</div>
-              <div>Transcripción completa: {fullTranscript ? 'Sí (' + fullTranscript.length + ' chars)' : 'No'}</div>
-            </div>
-          </div>
-        )}
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500 dark:text-gray-400">
