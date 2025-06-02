@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useGoogleTranslate } from '../hooks/useGoogleTranslate';
@@ -36,11 +35,14 @@ const TranscriptionApp = () => {
     isSupported,
     hasPermission,
     isMobile,
+    isCapacitor,
     startListening,
     stopListening,
     resetTranscript,
     requestMicrophonePermission
   } = useSpeechRecognition(selectedLanguage, selectedDeviceId === 'default' ? '' : selectedDeviceId);
+
+  console.log('App environment:', { isMobile, isCapacitor, isExpanded });
 
   // Acumular transcripción completa sin repeticiones
   useEffect(() => {
@@ -136,7 +138,7 @@ const TranscriptionApp = () => {
 
   const handleMicrophoneClick = async () => {
     console.log('🎤 Microphone button clicked');
-    console.log('Current state:', { isListening, hasPermission, isMobile, selectedDeviceId });
+    console.log('Current state:', { isListening, hasPermission, isMobile, isCapacitor, selectedDeviceId });
     
     if (isListening) {
       console.log('🛑 Stopping listening...');
@@ -146,10 +148,26 @@ const TranscriptionApp = () => {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
-      if (isMobile) {
-        console.log('📱 Mobile device - checking permissions...');
+      // Para aplicaciones Capacitor, manejo especial de permisos
+      if (isCapacitor) {
+        console.log('📱 Capacitor app - requesting native permissions...');
         if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting microphone permission for mobile...');
+          console.log('🔐 Requesting native microphone permission...');
+          const granted = await requestMicrophonePermission();
+          if (!granted) {
+            console.error('❌ Native permission denied');
+            alert('❌ Necesitas permitir el acceso al micrófono en la configuración de la aplicación.');
+            setIsRecording(false);
+            return;
+          }
+        }
+        
+        console.log('⏳ Adding delay for Capacitor app...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else if (isMobile) {
+        console.log('📱 Mobile browser - checking permissions...');
+        if (hasPermission === null || hasPermission === false) {
+          console.log('🔐 Requesting microphone permission for mobile browser...');
           const granted = await requestMicrophonePermission();
           if (!granted) {
             console.error('❌ Permission denied');
@@ -159,7 +177,7 @@ const TranscriptionApp = () => {
           }
         }
         
-        console.log('⏳ Adding delay for mobile device...');
+        console.log('⏳ Adding delay for mobile browser...');
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
@@ -250,7 +268,7 @@ const TranscriptionApp = () => {
           onToggleExpanded={() => setIsExpanded(!isExpanded)}
         />
 
-        {/* Language and Device Selectors */}
+        {/* Language Selector */}
         <LanguageSelector 
           translationDirection={translationDirection}
           onDirectionChange={handleDirectionChange}
@@ -271,10 +289,10 @@ const TranscriptionApp = () => {
           </div>
         )}
 
-        {/* Text Boxes */}
+        {/* Text Boxes - Ambos siempre visibles cuando expandido */}
         <div className={`grid gap-6 mb-8 ${
           isExpanded 
-            ? 'grid-cols-1' 
+            ? 'grid-cols-1 md:grid-cols-2' 
             : 'grid-cols-1 lg:grid-cols-2'
         }`}>
           {/* Transcription Box */}
@@ -288,18 +306,16 @@ const TranscriptionApp = () => {
             isExpanded={isExpanded}
           />
           
-          {/* Translation Box - Hidden when expanded to single column */}
-          {(!isExpanded || !isMobile) && (
-            <TranslationBox
-              title={translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
-              content={translationText}
-              isTranslating={isTranslating}
-              placeholder="La traducción aparecerá en tiempo real mientras hablas"
-              onCopy={() => copyText('translation')}
-              onDownload={() => downloadTranscript('translation')}
-              isExpanded={isExpanded}
-            />
-          )}
+          {/* Translation Box - Siempre visible cuando expandido */}
+          <TranslationBox
+            title={translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
+            content={translationText}
+            isTranslating={isTranslating}
+            placeholder="La traducción aparecerá en tiempo real mientras hablas"
+            onCopy={() => copyText('translation')}
+            onDownload={() => downloadTranscript('translation')}
+            isExpanded={isExpanded}
+          />
         </div>
 
         {/* Controls */}
