@@ -27,16 +27,4 @@ const App = () => (
 import { Permissions } from '@capacitor/permissions';
 import { App } from '@capacitor/app';
 
-async function requestMicrophonePermission() {
-  const status = await Permissions.request({ name: 'microphone' });
-
-  if (status.state === 'denied') {
-    const confirmed = confirm('Necesitas permitir el acceso al micrófono desde la configuración de tu teléfono. ¿Quieres abrir la configuración ahora?');
-    
-    if (confirmed) {
-      App.openSettings();
-    }
-  }
-}
-
 export default App;
