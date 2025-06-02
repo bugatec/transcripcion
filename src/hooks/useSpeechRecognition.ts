@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface SpeechRecognitionEvent extends Event {
@@ -190,10 +191,68 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
       if (isCapacitor) {
         console.log('📱 Capacitor detected - requesting native permissions');
         
-        // Intentar usar Capacitor Microphone plugin si está disponible
-        if (window.Capacitor) {
+        try {
+          // Importar dinámicamente el plugin de Capacitor Microphone
+          const { Microphone } = await import('@capacitor/microphone');
+          
+          // Verificar permisos actuales
+          const permissions = await Microphone.checkPermissions();
+          console.log('Current microphone permissions:', permissions);
+          
+          if (permissions.microphone === 'granted') {
+            console.log('✅ Native microphone permission already granted');
+            setHasPermission(true);
+            return true;
+          }
+          
+          if (permissions.microphone === 'denied') {
+            console.log('❌ Native microphone permission denied - redirecting to settings');
+            setHasPermission(false);
+            
+            // Mostrar mensaje para ir a configuraciones
+            const userConfirmed = confirm(
+              'Los permisos del micrófono están desactivados. ¿Quieres ir a la configuración de la aplicación para activarlos?'
+            );
+            
+            if (userConfirmed) {
+              // Abrir configuración de la app
+              const { App } = await import('@capacitor/app');
+              await App.openUrl({ url: 'app-settings:' });
+            }
+            return false;
+          }
+          
+          // Solicitar permisos si están en estado 'prompt'
+          if (permissions.microphone === 'prompt') {
+            console.log('🔐 Requesting native microphone permission...');
+            const permissionResult = await Microphone.requestPermissions();
+            
+            if (permissionResult.microphone === 'granted') {
+              console.log('✅ Native microphone permission granted');
+              setHasPermission(true);
+              return true;
+            } else {
+              console.log('❌ Native microphone permission denied');
+              setHasPermission(false);
+              
+              // Mostrar mensaje para ir a configuraciones
+              const userConfirmed = confirm(
+                'Es necesario activar los permisos del micrófono en la configuración de la aplicación. ¿Quieres abrir la configuración ahora?'
+              );
+              
+              if (userConfirmed) {
+                const { App } = await import('@capacitor/app');
+                await App.openUrl({ url: 'app-settings:' });
+              }
+              return false;
+            }
+          }
+          
+        } catch (error) {
+          console.error('❌ Error with Capacitor Microphone plugin:', error);
+          
+          // Fallback: intentar usar MediaDevices para verificar acceso básico
           try {
-            // Solicitar permisos nativos a través de Capacitor
             const stream = await navigator.mediaDevices.getUserMedia({ 
               audio: {
                 echoCancellation: true,
@@ -204,27 +263,27 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
               }
             });
             
-            // Detener inmediatamente para liberar el recurso
             stream.getTracks().forEach(track => track.stop());
-            
             setHasPermission(true);
-            console.log('✅ Native microphone permission granted');
+            console.log('✅ Fallback microphone access granted');
             return true;
-          } catch (error) {
-            console.error('❌ Native permission request failed:', error);
+          } catch (fallbackError) {
+            console.error('❌ Fallback permission request failed:', fallbackError);
             setHasPermission(false);
+            
+            alert('❌ No se pudo acceder al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
             return false;
           }
         }
       }
       
-      // Configuración de audio mejorada para diferentes dispositivos
+      // Para navegadores web normales
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
         ...(deviceId && deviceId !== '' ? { deviceId: { exact: deviceId } } : {}),
-        ...(isMobile || isCapacitor ? { 
+        ...(isMobile ? { 
           sampleRate: 16000,
           channelCount: 1 
         } : {
@@ -242,8 +301,9 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
       }, 1000);
       
       setHasPermission(true);
-      console.log('✅ Microphone permission granted');
+      console.log('✅ Browser microphone permission granted');
       return true;
+      
     } catch (error) {
       console.error('❌ Permission request failed:', error);
       setHasPermission(false);

@@ -25,7 +25,16 @@ const config: CapacitorConfig = {
       layoutName: "launch_screen",
       useDialog: true,
     },
+    Microphone: {
+      iosCustomPresentationAnchor: true,
+    },
   },
+  ios: {
+    contentInset: 'automatic'
+  },
+  android: {
+    allowMixedContent: true
+  }
 };
 
 export default config;
