@@ -11,6 +11,7 @@ import AudioDeviceSelector from './AudioDeviceSelector';
 import TranscriptionBox from './TranscriptionBox';
 import TranslationBox from './TranslationBox';
 import ControlButtons from './ControlButtons';
+import { Microphone } from '@mozartec/capacitor-microphone';
 
 const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
@@ -28,6 +29,26 @@ const TranscriptionApp = () => {
   const { translateText, isTranslating } = useGoogleTranslate();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+
+  const startRecording = async () => {
+  const permission = await Microphone.requestPermissions();
+  if (permission.microphone === 'granted') {
+    await Microphone.startRecording();
+  } else {
+    alert('Se necesita permiso de micrófono para grabar audio.');
+  }
+};
+
+const stopRecording = async () => {
+  const result = await Microphone.stopRecording();
+  const audioBlob = result.recording;
+
+  // Aquí puedes hacer lo que necesites con el audio grabado:
+  // reproducirlo, enviarlo a tu API de transcripción, etc.
+  const url = URL.createObjectURL(audioBlob);
+  const audio = new Audio(url);
+  audio.play();
+};
 
   const {
     transcript,
