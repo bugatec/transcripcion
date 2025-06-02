@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.94ff23dc71554bd184382233abd9c25e',
+  appId: 'com.lovable.transcripcion',
   appName: 'transcripcion',
   webDir: 'dist',
   server: {
