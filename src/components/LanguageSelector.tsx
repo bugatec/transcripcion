@@ -8,9 +8,12 @@ import ArrowRight from './ArrowRight';
 interface LanguageSelectorProps {
   translationDirection: string;
   onDirectionChange: (value: string) => void;
+  isHidden?: boolean;
 }
 
-const LanguageSelector = ({ translationDirection, onDirectionChange }: LanguageSelectorProps) => {
+const LanguageSelector = ({ translationDirection, onDirectionChange, isHidden = false }: LanguageSelectorProps) => {
+  if (isHidden) return null;
+
   return (
     <div className="flex justify-center mb-6">
       <Card className="p-4 shadow-md dark:bg-gray-800">

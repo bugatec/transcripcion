@@ -19,8 +19,14 @@
   ],
   "uses-permission": [
     {
-      "android:name": "android.permission.RECORD_AUDIO",
-      "android:maxSdkVersion": "33"
+      "android:name": "android.permission.RECORD_AUDIO"
     }
-  ]
+  ],
+  "queries": {
+    "intent": [
+      {
+        "action": "android.settings.APPLICATION_DETAILS_SETTINGS"
+      }
+    ]
+  }
 }

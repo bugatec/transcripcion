@@ -268,10 +268,11 @@ const TranscriptionApp = () => {
           onToggleExpanded={() => setIsExpanded(!isExpanded)}
         />
 
-        {/* Language Selector */}
+        {/* Language Selector - Hidden when expanded */}
         <LanguageSelector 
           translationDirection={translationDirection}
           onDirectionChange={handleDirectionChange}
+          isHidden={isExpanded}
         />
 
         {/* Audio Device Selector - Hidden when expanded */}
@@ -284,6 +285,7 @@ const TranscriptionApp = () => {
                 devicesLoading={devicesLoading}
                 onDeviceChange={handleDeviceChange}
                 onRefreshDevices={refreshDevices}
+                isHidden={isExpanded}
               />
             </Card>
           </div>
