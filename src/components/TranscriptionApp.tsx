@@ -158,7 +158,7 @@ const TranscriptionApp = () => {
           if (!granted) {
             console.error('❌ Native permission denied');
             alert('❌ Necesitas permitir el acceso al micrófono en la configuración de la aplicación.');
-            setIsRecording(true);
+            setIsRecording(false);
             return;
           }
         }
