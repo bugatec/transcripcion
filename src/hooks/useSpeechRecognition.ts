@@ -192,7 +192,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
         console.log('📱 Capacitor detected - requesting native permissions');
         
         try {
-          // Importar dinámicamente el plugin de Capacitor Microphone
+          // Intentar importar dinámicamente el plugin de Capacitor Microphone
           const { Microphone } = await import('@capacitor/microphone');
           
           // Verificar permisos actuales
@@ -215,9 +215,14 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
             );
             
             if (userConfirmed) {
-              // Abrir configuración de la app
-              const { App } = await import('@capacitor/app');
-              await App.openUrl({ url: 'app-settings:' });
+              // Intentar abrir configuración de la app
+              try {
+                const { App } = await import('@capacitor/app');
+                await App.openSettings();
+              } catch (appError) {
+                console.error('Error opening app settings:', appError);
+                alert('Ve manualmente a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
+              }
             }
             return false;
           }
@@ -241,15 +246,20 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
               );
               
               if (userConfirmed) {
-                const { App } = await import('@capacitor/app');
-                await App.openUrl({ url: 'app-settings:' });
+                try {
+                  const { App } = await import('@capacitor/app');
+                  await App.openSettings();
+                } catch (appError) {
+                  console.error('Error opening app settings:', appError);
+                  alert('Ve manualmente a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
+                }
               }
               return false;
             }
           }
           
         } catch (error) {
-          console.error('❌ Error with Capacitor Microphone plugin:', error);
+          console.error('❌ Error with Capacitor plugins or plugins not available:', error);
           
           // Fallback: intentar usar MediaDevices para verificar acceso básico
           try {
