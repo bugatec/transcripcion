@@ -1,9 +1,5 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { detectEnvironment } from '../utils/deviceDetection';
-import { createSpeechRecognitionConfig, getAudioConstraints } from '../utils/speechRecognitionConfig';
-import { checkMicrophonePermission, requestMicrophonePermission } from '../utils/microphonePermissions';
-import { createSpeechHandlers } from '../utils/speechRecognitionHandlers';
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -54,53 +50,151 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
   const streamRef = useRef<MediaStream | null>(null);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { isMobile, isCapacitor, isIOS, isAndroid } = detectEnvironment();
+  // Detectar si es dispositivo móvil y si está ejecutándose en Capacitor
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isCapacitor = window.Capacitor?.isNativePlatform() || false;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
 
   console.log('Environment detected:', { isMobile, isCapacitor, isIOS, isAndroid });
 
   // Verificar permisos al cargar
   useEffect(() => {
     const checkInitialPermissions = async () => {
-      const hasAccess = await checkMicrophonePermission();
-      setHasPermission(hasAccess);
-      console.log(hasAccess ? '✅ Initial microphone permission check: granted' : '🔐 Initial microphone permission check: not granted yet');
+      try {
+        // Intentar acceder al micrófono sin mostrar alertas
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            ...(isMobile || isCapacitor ? { 
+              sampleRate: 16000,
+              channelCount: 1 
+            } : {
+              sampleRate: 44100
+            })
+          }
+        });
+        
+        // Si llegamos aquí, los permisos están concedidos
+        stream.getTracks().forEach(track => track.stop());
+        setHasPermission(true);
+        console.log('✅ Initial microphone permission check: granted');
+      } catch (error) {
+        console.log('🔐 Initial microphone permission check: not granted yet');
+        setHasPermission(false);
+      }
     };
 
     checkInitialPermissions();
-  }, []);
+  }, [isMobile, isCapacitor]);
 
   useEffect(() => {
-    const recognition = createSpeechRecognitionConfig(language);
+    // Check if browser supports speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
-    if (recognition) {
+    if (SpeechRecognition) {
       setIsSupported(true);
-      recognitionRef.current = recognition;
+      recognitionRef.current = new SpeechRecognition();
     } else {
       setIsSupported(false);
     }
-  }, [language]);
+  }, []);
 
   useEffect(() => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
-    const handlers = createSpeechHandlers(
-      setIsListening,
-      setHasPermission,
-      finalTranscriptRef,
-      setTranscript,
-      streamRef,
-      restartTimeoutRef,
-      recognitionRef,
-      isListening,
-      isMobile,
-      isCapacitor
-    );
+    // Configuración optimizada para móviles y Capacitor
+    if (isMobile || isCapacitor) {
+      recognition.continuous = false;
+      recognition.interimResults = true;
+    } else {
+      recognition.continuous = true;
+      recognition.interimResults = true;
+    }
+    
+    recognition.lang = language;
 
-    recognition.onstart = handlers.onStart;
-    recognition.onend = handlers.onEnd;
-    recognition.onresult = handlers.onResult;
-    recognition.onerror = handlers.onError;
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setIsListening(true);
+      setHasPermission(true);
+    };
+
+    recognition.onend = () => {
+      console.log('🛑 Speech recognition ended');
+      setIsListening(false);
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+    };
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interimTranscript = '';
+      let finalTranscript = finalTranscriptRef.current;
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcriptPart = event.results[i][0].transcript;
+        
+        if (event.results[i].isFinal) {
+          const formattedTranscript = transcriptPart.trim();
+          if (formattedTranscript) {
+            finalTranscript += (finalTranscript ? ' ' : '') + 
+              formattedTranscript.charAt(0).toUpperCase() + 
+              formattedTranscript.slice(1);
+            
+            if (!/[.!?]$/.test(finalTranscript)) {
+              finalTranscript += '.';
+            }
+          }
+        } else {
+          interimTranscript += transcriptPart;
+        }
+      }
+
+      finalTranscriptRef.current = finalTranscript;
+      
+      const displayTranscript = finalTranscript + 
+        (interimTranscript ? (finalTranscript ? ' ' : '') + interimTranscript : '');
+      
+      setTranscript(displayTranscript);
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('🚨 Speech recognition error:', event.error);
+      setIsListening(false);
+      
+      if (event.error === 'not-allowed') {
+        setHasPermission(false);
+        console.log('❌ Permission denied during speech recognition');
+      } else if (event.error === 'no-speech') {
+        if (isMobile || isCapacitor) {
+          setTimeout(() => {
+            if (recognitionRef.current && isListening) {
+              try {
+                recognitionRef.current.start();
+              } catch (error) {
+                console.error('Error restarting after no-speech:', error);
+              }
+            }
+          }, 500);
+        }
+      } else if (event.error === 'audio-capture') {
+        console.error('❌ Audio capture error');
+        setHasPermission(false);
+      } else if (event.error === 'network') {
+        console.error('❌ Network error during speech recognition');
+      }
+    };
 
     return () => {
       if (recognition) {
@@ -114,11 +208,45 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
         recognition.onspeechend = null;
       }
     };
-  }, [language, isMobile, isCapacitor, isListening]);
+  }, [language, isMobile, isCapacitor, isIOS, isAndroid, isListening]);
 
-  const requestPermission = useCallback(async () => {
-    return await requestMicrophonePermission(deviceId === 'default' ? '' : deviceId);
-  }, [deviceId]);
+  const requestMicrophonePermission = useCallback(async () => {
+    console.log('🔐 Requesting microphone permission...');
+    
+    try {
+      // Configurar restricciones de audio optimizadas
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(deviceId && deviceId !== '' ? { deviceId: { exact: deviceId } } : {}),
+        ...(isMobile || isCapacitor ? { 
+          sampleRate: 16000,
+          channelCount: 1 
+        } : {
+          sampleRate: 44100
+        })
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: audioConstraints
+      });
+      
+      // Probar brevemente y luego detener
+      setTimeout(() => {
+        stream.getTracks().forEach(track => track.stop());
+      }, 1000);
+      
+      setHasPermission(true);
+      console.log('✅ Microphone permission granted');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Permission request failed:', error);
+      setHasPermission(false);
+      return false;
+    }
+  }, [deviceId, isMobile, isCapacitor]);
 
   const startListening = useCallback(async () => {
     const recognition = recognitionRef.current;
@@ -129,14 +257,13 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
 
     try {
       // Solo solicitar permisos si realmente no los tenemos
-      if (hasPermission === false || hasPermission === null) {
+      if (hasPermission === false) {
         console.log('📋 Requesting permissions...');
-        const granted = await requestPermission();
+        const granted = await requestMicrophonePermission();
         if (!granted) {
           console.error('❌ Permission denied, cannot start listening');
           return;
         }
-        setHasPermission(true);
       }
 
       // Delay para dispositivos móviles y Capacitor
@@ -147,15 +274,36 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
       // Configurar dispositivo específico si se especifica
       if (deviceId && deviceId !== '') {
         try {
-          const constraints = {
-            audio: getAudioConstraints(deviceId)
+          const constraints: MediaStreamConstraints = {
+            audio: {
+              deviceId: { exact: deviceId },
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              ...(isMobile || isCapacitor ? { 
+                sampleRate: 16000,
+                channelCount: 1 
+              } : {
+                sampleRate: 44100
+              })
+            }
           };
           
           streamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (error) {
           console.warn('⚠️ Falling back to default microphone');
           streamRef.current = await navigator.mediaDevices.getUserMedia({ 
-            audio: getAudioConstraints()
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              ...(isMobile || isCapacitor ? { 
+                sampleRate: 16000,
+                channelCount: 1 
+              } : {
+                sampleRate: 44100
+              })
+            }
           });
         }
       }
@@ -176,7 +324,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
         }
       }
     }
-  }, [isListening, deviceId, hasPermission, requestPermission, isMobile, isCapacitor]);
+  }, [isListening, deviceId, hasPermission, requestMicrophonePermission, isMobile, isCapacitor]);
 
   const stopListening = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -205,6 +353,6 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     startListening,
     stopListening,
     resetTranscript,
-    requestMicrophonePermission: requestPermission
+    requestMicrophonePermission
   };
 };
