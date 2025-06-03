@@ -12,115 +12,103 @@ export const useAudioDevices = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
-  const getAudioDevices = useCallback(async (forcePermission = false) => {
+  const getAudioDevices = useCallback(async (requestPermission = false) => {
     setIsLoading(true);
     try {
-      console.log('🔍 Getting audio devices...');
+      console.log('🔍 Getting audio devices... requestPermission:', requestPermission);
       
-      // First check if we already have permission
-      let permissionGranted = false;
-      if ('permissions' in navigator) {
-        try {
-          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          permissionGranted = result.state === 'granted';
-          console.log('🔐 Permission state:', result.state);
-        } catch (err) {
-          console.log('⚠️ Permissions API not available');
-        }
-      }
-
-      // If we don't have permission and we're not forcing it, just enumerate what we can
-      if (!permissionGranted && !forcePermission) {
-        console.log('📝 Enumerating devices without permission...');
+      // First, try to enumerate devices without requesting permission
+      if (!requestPermission) {
         const devices = await navigator.mediaDevices.enumerateDevices();
+        console.log('📱 Devices found (without permission):', devices.length);
+        
         const audioInputDevices = devices
           .filter(device => device.kind === 'audioinput')
-          .map(device => ({
+          .map((device, index) => ({
             deviceId: device.deviceId,
-            label: device.label || `Micrófono ${device.deviceId.slice(0, 8)}`,
+            label: device.label || `Micrófono ${index + 1}`,
             kind: device.kind
           }));
 
-        console.log('🎤 Found audio devices (limited info):', audioInputDevices);
         setAudioDevices(audioInputDevices);
-        setHasPermission(false);
+        
+        // If we have device labels, we likely have permission
+        const hasLabels = audioInputDevices.some(device => device.label && !device.label.startsWith('Micrófono'));
+        setHasPermission(hasLabels);
+        
+        console.log('🎤 Audio devices (no permission):', audioInputDevices);
         return;
       }
 
-      // Request permission if we don't have it
-      if (!permissionGranted || forcePermission) {
-        console.log('🔐 Requesting microphone permission...');
+      // Request permission and get full device info
+      console.log('🔐 Requesting microphone permission for device enumeration...');
+      
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
+          audio: { echoCancellation: true } 
         });
-        console.log('✅ Microphone permission granted');
         
-        // Stop the permission stream
+        console.log('✅ Got microphone stream, stopping and enumerating devices...');
         stream.getTracks().forEach(track => track.stop());
-        setHasPermission(true);
-      }
-      
-      // Now enumerate devices with full labels
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      console.log('📱 All devices found:', devices);
-      
-      const audioInputDevices = devices
-        .filter(device => device.kind === 'audioinput')
-        .map(device => ({
-          deviceId: device.deviceId,
-          label: device.label || `Micrófono ${device.deviceId.slice(0, 8)}`,
-          kind: device.kind
-        }));
+        
+        // Small delay to ensure device list is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        console.log('📱 All devices after permission:', devices);
+        
+        const audioInputDevices = devices
+          .filter(device => device.kind === 'audioinput')
+          .map((device, index) => ({
+            deviceId: device.deviceId,
+            label: device.label || `Micrófono ${index + 1}`,
+            kind: device.kind
+          }));
 
-      console.log('🎤 Audio input devices with labels:', audioInputDevices);
-      setAudioDevices(audioInputDevices);
-      setHasPermission(true);
+        console.log('🎤 Audio input devices with permission:', audioInputDevices);
+        setAudioDevices(audioInputDevices);
+        setHasPermission(true);
+        
+      } catch (permissionError) {
+        console.error('❌ Failed to get permission for device enumeration:', permissionError);
+        setHasPermission(false);
+        
+        // Still try to enumerate what we can
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputDevices = devices
+          .filter(device => device.kind === 'audioinput')
+          .map((device, index) => ({
+            deviceId: device.deviceId,
+            label: `Micrófono ${index + 1}`,
+            kind: device.kind
+          }));
+        
+        setAudioDevices(audioInputDevices);
+      }
       
     } catch (error) {
       console.error('❌ Error getting audio devices:', error);
       setAudioDevices([]);
-      
-      if (error instanceof DOMException) {
-        if (error.name === 'NotAllowedError') {
-          console.error('❌ Microphone permission denied');
-          setHasPermission(false);
-        } else if (error.name === 'NotFoundError') {
-          console.error('❌ No microphones found');
-          setHasPermission(null);
-        } else if (error.name === 'NotReadableError') {
-          console.error('❌ Microphone is being used by another application');
-          setHasPermission(false);
-        }
-      } else {
-        setHasPermission(null);
-      }
+      setHasPermission(false);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   const refreshDevices = useCallback((requestPermission = true) => {
-    console.log('🔄 Refreshing audio devices...');
+    console.log('🔄 Refreshing audio devices with permission request:', requestPermission);
     getAudioDevices(requestPermission);
   }, [getAudioDevices]);
 
   const testDevice = useCallback(async (deviceId: string) => {
     try {
       console.log('🧪 Testing device:', deviceId);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { 
-          deviceId: { exact: deviceId },
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+      const constraints = deviceId === 'default' || !deviceId 
+        ? { audio: { echoCancellation: true } }
+        : { audio: { deviceId: { exact: deviceId }, echoCancellation: true } };
+        
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      // Test for a short period
       setTimeout(() => {
         stream.getTracks().forEach(track => track.stop());
         console.log('✅ Device test completed successfully');
@@ -134,12 +122,12 @@ export const useAudioDevices = () => {
   }, []);
 
   useEffect(() => {
-    // Start by enumerating devices without forcing permission
+    // Start by checking what devices we can see without permission
     getAudioDevices(false);
 
     // Listen for device changes
     const handleDeviceChange = () => {
-      console.log('🔄 Audio devices changed, refreshing list...');
+      console.log('🔄 Audio devices changed, refreshing...');
       getAudioDevices(hasPermission === true);
     };
 

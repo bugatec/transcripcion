@@ -1,33 +1,48 @@
 
 import { detectEnvironment } from './deviceDetection';
-import { getAudioConstraints } from './speechRecognitionConfig';
 
 export const checkMicrophonePermission = async (): Promise<boolean> => {
   try {
-    // First check if we already have permission using the Permissions API
-    if ('permissions' in navigator) {
-      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-      if (result.state === 'granted') {
-        return true;
-      } else if (result.state === 'denied') {
-        return false;
-      }
-      // If state is 'prompt', we need to actually request permission
+    // For Capacitor apps, try getUserMedia directly as Permissions API might not work
+    const { isCapacitor } = detectEnvironment();
+    
+    if (isCapacitor) {
+      console.log('📱 Capacitor detected, checking permissions via getUserMedia...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true } 
+      });
+      stream.getTracks().forEach(track => track.stop());
+      console.log('✅ Capacitor microphone permission: granted');
+      return true;
     }
 
-    // Try to get access with minimal constraints first
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
+    // For web browsers, check Permissions API first
+    if ('permissions' in navigator) {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        console.log('🔐 Permission API state:', result.state);
+        if (result.state === 'granted') {
+          return true;
+        } else if (result.state === 'denied') {
+          return false;
+        }
+        // If state is 'prompt', continue to getUserMedia
+      } catch (permError) {
+        console.log('⚠️ Permissions API failed, falling back to getUserMedia');
       }
+    }
+
+    // Try getUserMedia as fallback or for 'prompt' state
+    console.log('🎤 Testing microphone access...');
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: { echoCancellation: true } 
     });
-    
     stream.getTracks().forEach(track => track.stop());
+    console.log('✅ Microphone permission: granted');
     return true;
+    
   } catch (error) {
-    console.log('🔍 Permission check failed:', error);
+    console.log('❌ Permission check failed:', error);
     return false;
   }
 };
@@ -38,46 +53,27 @@ export const requestMicrophonePermission = async (deviceId?: string): Promise<bo
   console.log('🔐 Requesting microphone permission...');
   
   try {
-    // For Capacitor apps, we might need to handle permissions differently
-    if (isCapacitor) {
-      console.log('📱 Capacitor app detected, requesting native permissions...');
-    }
-
-    // Start with basic audio constraints, then try specific device if provided
-    let audioConstraints = {
+    // Basic audio constraints
+    const audioConstraints = {
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,
       ...(isMobile || isCapacitor ? { 
         sampleRate: 16000,
         channelCount: 1 
-      } : {
-        sampleRate: 44100
-      })
+      } : {})
     };
 
-    console.log('🎤 Requesting access with basic constraints first...');
+    console.log('🎤 Requesting basic microphone access...');
     
     const stream = await navigator.mediaDevices.getUserMedia({ 
       audio: audioConstraints
     });
     
-    // If we got permission, test the specific device if requested
-    if (deviceId && deviceId !== '' && deviceId !== 'default') {
-      try {
-        console.log('🎤 Testing specific device:', deviceId);
-        const deviceStream = await navigator.mediaDevices.getUserMedia({
-          audio: { ...audioConstraints, deviceId: { exact: deviceId } }
-        });
-        deviceStream.getTracks().forEach(track => track.stop());
-      } catch (deviceError) {
-        console.warn('⚠️ Specific device failed, will use default:', deviceError);
-      }
-    }
-    
+    // Clean up the stream
     setTimeout(() => {
       stream.getTracks().forEach(track => track.stop());
-    }, 500);
+    }, 100);
     
     console.log('✅ Microphone permission granted');
     return true;
@@ -86,14 +82,19 @@ export const requestMicrophonePermission = async (deviceId?: string): Promise<bo
     console.error('❌ Permission request failed:', error);
     
     if (error instanceof DOMException) {
-      if (error.name === 'NotAllowedError') {
-        console.log('❌ Permission denied by user');
-      } else if (error.name === 'NotFoundError') {
-        console.error('❌ No microphone found');
-      } else if (error.name === 'NotReadableError') {
-        console.error('❌ Microphone is being used by another application');
-      } else if (error.name === 'OverconstrainedError') {
-        console.error('❌ Microphone constraints not supported');
+      switch (error.name) {
+        case 'NotAllowedError':
+          console.log('❌ Permission denied by user');
+          break;
+        case 'NotFoundError':
+          console.error('❌ No microphone found');
+          break;
+        case 'NotReadableError':
+          console.error('❌ Microphone is being used by another application');
+          break;
+        case 'OverconstrainedError':
+          console.error('❌ Microphone constraints not supported');
+          break;
       }
     }
     

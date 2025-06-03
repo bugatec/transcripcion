@@ -40,8 +40,8 @@ const TranscriptionApp = () => {
   const { translateText, isTranslating } = useGoogleTranslate();
   const { isCapacitor, isMobile } = detectEnvironment();
 
-  // Combinar permisos de ambos hooks
-  const hasPermission = speechPermission !== null ? speechPermission : devicesPermission;
+  // Mejorar la lógica de combinación de permisos
+  const hasPermission = speechPermission !== null ? speechPermission : (devicesPermission !== null ? devicesPermission : null);
 
   useEffect(() => {
     console.log('🚀 TranscriptionApp mounted');
@@ -52,9 +52,13 @@ const TranscriptionApp = () => {
       const hasAccess = await checkMicrophonePermission();
       console.log('🎤 Initial permission check result:', hasAccess);
       
-      // Si ya tenemos permisos, refrescar dispositivos con información completa
+      // Siempre intentar refrescar dispositivos, pero sin forzar permisos inicialmente
       if (hasAccess) {
-        refreshDevices(true);
+        console.log('✅ Has access, refreshing devices with permission...');
+        setTimeout(() => refreshDevices(true), 500);
+      } else {
+        console.log('🔐 No access yet, getting basic device list...');
+        refreshDevices(false);
       }
     };
     
@@ -82,17 +86,17 @@ const TranscriptionApp = () => {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
-      // Verificar y solicitar permisos primero
-      if (hasPermission === null || hasPermission === false) {
-        console.log('🔐 Requesting microphone permission...');
+      // Simplificar la verificación de permisos
+      console.log('🔍 Current permission state:', hasPermission);
+      
+      if (hasPermission === false) {
+        console.log('🔐 No permission, requesting...');
         const granted = await requestMicrophonePermission(selectedDeviceId);
         if (!granted) {
           console.error('❌ Permission denied');
           
           const message = isCapacitor 
-            ? '❌ La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.'
-            : isMobile
-            ? '❌ Permite el acceso al micrófono en la configuración del navegador.'
+            ? '❌ Necesitas permitir el acceso al micrófono en la configuración de la aplicación.'
             : '❌ Permite el acceso al micrófono para usar esta función.';
             
           toast({
@@ -106,13 +110,14 @@ const TranscriptionApp = () => {
         }
         
         // Refrescar dispositivos después de obtener permisos
+        console.log('✅ Permission granted, refreshing devices...');
         refreshDevices(true);
       }
       
       // Delay para dispositivos móviles
       if (isMobile || isCapacitor) {
-        console.log('⏳ Adding delay for mobile/Capacitor...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('⏳ Adding mobile delay...');
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
       await startListening();
