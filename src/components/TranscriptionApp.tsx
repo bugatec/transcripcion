@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Square, Play } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import useSpeechRecognition from '@/hooks/useSpeechRecognition';
-import useGoogleTranslate from '@/hooks/useGoogleTranslate';
-import useAudioDevices from '@/hooks/useAudioDevices';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useGoogleTranslate } from '@/hooks/useGoogleTranslate';
+import { useAudioDevices } from '@/hooks/useAudioDevices';
 import { useTheme } from '@/hooks/useTheme';
 import TranscriptionBox from './TranscriptionBox';
 import TranslationBox from './TranslationBox';
@@ -23,9 +24,12 @@ const TranscriptionApp = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState(0);
+  const [translationDirection, setTranslationDirection] = useState('es-en');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [translatedText, setTranslatedText] = useState('');
   
   const { theme, toggleTheme } = useTheme();
-  const { devices, refreshDevices } = useAudioDevices();
+  const { audioDevices, isLoading: devicesLoading, refreshDevices } = useAudioDevices();
   const { 
     isListening, 
     hasPermission, 
@@ -39,7 +43,7 @@ const TranscriptionApp = () => {
     selectedDeviceId
   );
 
-  const { translatedText, translateText, isTranslating } = useGoogleTranslate();
+  const { translateText, isTranslating } = useGoogleTranslate();
   const { isCapacitor, isMobile } = detectEnvironment();
 
   useEffect(() => {
@@ -63,9 +67,14 @@ const TranscriptionApp = () => {
   useEffect(() => {
     if (transcript && transcript.trim()) {
       console.log('📝 Transcript updated, auto-translating...');
-      translateText(transcript, targetLanguage);
+      const [source, target] = translationDirection.split('-');
+      translateText(transcript, source, target).then(result => {
+        setTranslatedText(result);
+      }).catch(error => {
+        console.error('Translation error:', error);
+      });
     }
-  }, [transcript, targetLanguage, translateText]);
+  }, [transcript, translationDirection, translateText]);
 
   const handleStartRecording = async () => {
     try {
@@ -135,12 +144,43 @@ const TranscriptionApp = () => {
     console.log('🧹 Clearing all content...');
     clearTranscript();
     setTranscript('');
+    setTranslatedText('');
   };
 
-  const getRecordingButtonColor = () => {
-    if (isListening) return 'bg-red-500 hover:bg-red-600';
-    if (isRecording) return 'bg-yellow-500 hover:bg-yellow-600';
-    return 'bg-blue-500 hover:bg-blue-600';
+  const handleCopyTranscript = () => {
+    navigator.clipboard.writeText(transcript);
+    toast({
+      title: "Copiado",
+      description: "Transcripción copiada al portapapeles",
+    });
+  };
+
+  const handleDownloadTranscript = () => {
+    const element = document.createElement('a');
+    const file = new Blob([transcript], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = 'transcripcion.txt';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleCopyTranslation = () => {
+    navigator.clipboard.writeText(translatedText);
+    toast({
+      title: "Copiado",
+      description: "Traducción copiada al portapapeles",
+    });
+  };
+
+  const handleDownloadTranslation = () => {
+    const element = document.createElement('a');
+    const file = new Blob([translatedText], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = 'traduccion.txt';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   return (
@@ -149,81 +189,83 @@ const TranscriptionApp = () => {
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
         : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'
     }`}>
-      <AppHeader theme={theme} onToggleTheme={toggleTheme} />
-      
-      <div className="container mx-auto px-4 py-8 space-y-6">
-        <Card className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white'} shadow-xl`}>
-          <CardHeader className="text-center">
-            <CardTitle className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-              🎤 Transcripción y Traducción en Tiempo Real
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="container mx-auto px-4 py-8">
+        <AppHeader 
+          theme={theme} 
+          isMobile={isMobile}
+          isExpanded={isExpanded}
+          onToggleTheme={toggleTheme}
+          onToggleExpanded={() => setIsExpanded(!isExpanded)}
+        />
+        
+        <div className="space-y-6">
+          <Card className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white'} shadow-xl`}>
+            <CardHeader className="text-center">
+              <CardTitle className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                🎤 Transcripción y Traducción en Tiempo Real
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
               <LanguageSelector
-                label="Idioma de origen"
-                value={sourceLanguage}
-                onChange={setSourceLanguage}
-                theme={theme}
-                type="speech"
+                translationDirection={translationDirection}
+                onDirectionChange={setTranslationDirection}
               />
-              <LanguageSelector
-                label="Idioma de destino"
-                value={targetLanguage}
-                onChange={setTargetLanguage}
-                theme={theme}
-                type="translation"
+
+              <AudioDeviceSelector
+                selectedDeviceId={selectedDeviceId}
+                audioDevices={audioDevices}
+                devicesLoading={devicesLoading}
+                onDeviceChange={setSelectedDeviceId}
+                onRefreshDevices={refreshDevices}
               />
-            </div>
 
-            <AudioDeviceSelector
-              devices={devices}
-              selectedDeviceId={selectedDeviceId}
-              onDeviceChange={setSelectedDeviceId}
-              onRefresh={refreshDevices}
-              theme={theme}
-            />
-
-            <ControlButtons
-              isRecording={isRecording}
-              isListening={isListening}
-              hasPermission={hasPermission}
-              onStartRecording={handleStartRecording}
-              onStopRecording={handleStopRecording}
-              onClearAll={handleClearAll}
-              getRecordingButtonColor={getRecordingButtonColor}
-              theme={theme}
-            />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TranscriptionBox
-                transcript={transcript}
+              <ControlButtons
                 isListening={isListening}
-                theme={theme}
+                hasPermission={hasPermission}
+                isMobile={isMobile}
+                transcript={transcript}
+                onMicrophoneClick={isListening ? handleStopRecording : handleStartRecording}
+                onReset={handleClearAll}
               />
-              <TranslationBox
-                translatedText={translatedText}
-                isTranslating={isTranslating}
-                theme={theme}
-              />
-            </div>
 
-            {hasPermission === false && (
-              <div className={`p-4 rounded-lg border-2 border-dashed ${
-                theme === 'dark' 
-                  ? 'border-red-400 bg-red-900/20 text-red-300' 
-                  : 'border-red-300 bg-red-50 text-red-700'
-              }`}>
-                <p className="text-center">
-                  ⚠️ {isCapacitor 
-                    ? 'La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.' 
-                    : 'Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.'
-                  }
-                </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TranscriptionBox
+                  title="Transcripción"
+                  content={transcript}
+                  isListening={isListening}
+                  placeholder="🎤 Presiona 'Iniciar' para comenzar a transcribir..."
+                  onCopy={handleCopyTranscript}
+                  onDownload={handleDownloadTranscript}
+                  isExpanded={isExpanded}
+                />
+                <TranscriptionBox
+                  title="Traducción"
+                  content={translatedText}
+                  isListening={isTranslating}
+                  placeholder="🌐 La traducción aparecerá aquí automáticamente..."
+                  onCopy={handleCopyTranslation}
+                  onDownload={handleDownloadTranslation}
+                  isExpanded={isExpanded}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {hasPermission === false && (
+                <div className={`p-4 rounded-lg border-2 border-dashed ${
+                  theme === 'dark' 
+                    ? 'border-red-400 bg-red-900/20 text-red-300' 
+                    : 'border-red-300 bg-red-50 text-red-700'
+                }`}>
+                  <p className="text-center">
+                    ⚠️ {isCapacitor 
+                      ? 'La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.' 
+                      : 'Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.'
+                    }
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
