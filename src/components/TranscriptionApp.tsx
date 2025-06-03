@@ -27,11 +27,11 @@ const TranscriptionApp = () => {
   const [translatedText, setTranslatedText] = useState('');
   
   const { theme, toggleTheme } = useTheme();
-  const { audioDevices, isLoading: devicesLoading, refreshDevices } = useAudioDevices();
+  const { audioDevices, isLoading: devicesLoading, hasPermission: devicesPermission, refreshDevices } = useAudioDevices();
   const { 
     transcript,
     isListening, 
-    hasPermission, 
+    hasPermission: speechPermission, 
     startListening, 
     stopListening, 
     resetTranscript 
@@ -39,6 +39,9 @@ const TranscriptionApp = () => {
 
   const { translateText, isTranslating } = useGoogleTranslate();
   const { isCapacitor, isMobile } = detectEnvironment();
+
+  // Combinar permisos de ambos hooks
+  const hasPermission = speechPermission !== null ? speechPermission : devicesPermission;
 
   useEffect(() => {
     console.log('🚀 TranscriptionApp mounted');
@@ -48,11 +51,15 @@ const TranscriptionApp = () => {
       console.log('🔍 Checking initial microphone permissions...');
       const hasAccess = await checkMicrophonePermission();
       console.log('🎤 Initial permission check result:', hasAccess);
+      
+      // Si ya tenemos permisos, refrescar dispositivos con información completa
+      if (hasAccess) {
+        refreshDevices(true);
+      }
     };
     
     initializePermissions();
-    refreshDevices();
-  }, []);
+  }, [refreshDevices]);
 
   useEffect(() => {
     console.log('🎤 Permission state changed:', hasPermission);
@@ -75,47 +82,40 @@ const TranscriptionApp = () => {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
-      // Para aplicaciones Capacitor
-      if (isCapacitor) {
-        console.log('📱 Capacitor app - checking permissions...');
-        if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting microphone permission...');
-          const granted = await requestMicrophonePermission();
-          if (!granted) {
-            console.error('❌ Permission denied');
-            alert('❌ La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
-            setIsRecording(false);
-            return;
-          }
-        }
-      } else if (isMobile) {
-        // Mobile browser
-        if (hasPermission === null || hasPermission === false) {
-          const granted = await requestMicrophonePermission();
-          if (!granted) {
-            console.error('❌ Permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono en la configuración del navegador.');
-            setIsRecording(false);
-            return;
-          }
+      // Verificar y solicitar permisos primero
+      if (hasPermission === null || hasPermission === false) {
+        console.log('🔐 Requesting microphone permission...');
+        const granted = await requestMicrophonePermission(selectedDeviceId);
+        if (!granted) {
+          console.error('❌ Permission denied');
+          
+          const message = isCapacitor 
+            ? '❌ La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.'
+            : isMobile
+            ? '❌ Permite el acceso al micrófono en la configuración del navegador.'
+            : '❌ Permite el acceso al micrófono para usar esta función.';
+            
+          toast({
+            title: "Error de permisos",
+            description: message,
+            variant: "destructive",
+          });
+          
+          setIsRecording(false);
+          return;
         }
         
-        console.log('⏳ Adding delay for mobile browser...');
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } else {
-        // Desktop
-        if (hasPermission === null || hasPermission === false) {
-          const granted = await requestMicrophonePermission();
-          if (!granted) {
-            console.error('❌ Permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono para usar esta función.');
-            setIsRecording(false);
-            return;
-          }
-        }
+        // Refrescar dispositivos después de obtener permisos
+        refreshDevices(true);
       }
       
-      startListening();
+      // Delay para dispositivos móviles
+      if (isMobile || isCapacitor) {
+        console.log('⏳ Adding delay for mobile/Capacitor...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      await startListening();
       
     } catch (error) {
       console.error('❌ Error starting recording:', error);
@@ -209,7 +209,7 @@ const TranscriptionApp = () => {
                 audioDevices={audioDevices}
                 devicesLoading={devicesLoading}
                 onDeviceChange={setSelectedDeviceId}
-                onRefreshDevices={refreshDevices}
+                onRefreshDevices={() => refreshDevices(true)}
               />
 
               <ControlButtons
@@ -251,9 +251,21 @@ const TranscriptionApp = () => {
                   <p className="text-center">
                     ⚠️ {isCapacitor 
                       ? 'La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.' 
-                      : 'Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.'
+                      : 'Necesitas permitir el acceso al micrófono para usar esta función. Haz clic en "Iniciar" para conceder permisos.'
                     }
                   </p>
+                  {!isCapacitor && (
+                    <div className="mt-3 text-center">
+                      <Button
+                        onClick={() => refreshDevices(true)}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white text-red-700 border-red-300 hover:bg-red-50"
+                      >
+                        🔐 Solicitar Permisos
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
