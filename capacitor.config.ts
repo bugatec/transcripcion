@@ -1,4 +1,3 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -28,15 +27,30 @@ const config: CapacitorConfig = {
     Microphone: {
       iosCustomPresentationAnchor: true,
     },
+    CapacitorHttp: {
+      enabled: true,
+    },
   },
   ios: {
-    contentInset: 'automatic'
+    contentInset: 'automatic',
+    allowsLinkPreview: false,
+    backgroundColor: '#ffffff',
+    preferredContentMode: 'mobile'
   },
   android: {
     allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: true,
     permissions: [
       'android.permission.RECORD_AUDIO',
-      'android.permission.MODIFY_AUDIO_SETTINGS'
+      'android.permission.MODIFY_AUDIO_SETTINGS',
+      'android.permission.BLUETOOTH',
+      'android.permission.BLUETOOTH_ADMIN',
+      'android.permission.BLUETOOTH_CONNECT',
+      'android.permission.ACCESS_COARSE_LOCATION',
+      'android.permission.MANAGE_EXTERNAL_STORAGE',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE'
     ]
   }
 };
