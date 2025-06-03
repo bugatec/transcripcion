@@ -149,15 +149,15 @@ const TranscriptionApp = () => {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
-      // Para aplicaciones Capacitor, manejo especial de permisos
+      // Para aplicaciones Capacitor
       if (isCapacitor) {
-        console.log('📱 Capacitor app - requesting native permissions...');
+        console.log('📱 Capacitor app - checking permissions...');
         if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting native microphone permission...');
+          console.log('🔐 Requesting microphone permission...');
           const granted = await requestMicrophonePermission();
           if (!granted) {
-            console.error('❌ Native permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono en la configuración de la aplicación.');
+            console.error('❌ Permission denied');
+            alert('❌ La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.');
             setIsRecording(false);
             return;
           }
@@ -180,6 +180,17 @@ const TranscriptionApp = () => {
         
         console.log('⏳ Adding delay for mobile browser...');
         await new Promise(resolve => setTimeout(resolve, 300));
+      } else {
+        // Desktop
+        if (hasPermission === null || hasPermission === false) {
+          const granted = await requestMicrophonePermission();
+          if (!granted) {
+            console.error('❌ Permission denied');
+            alert('❌ Necesitas permitir el acceso al micrófono para usar esta función.');
+            setIsRecording(false);
+            return;
+          }
+        }
       }
       
       startListening();

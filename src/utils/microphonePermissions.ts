@@ -4,12 +4,10 @@ import { getAudioConstraints } from './speechRecognitionConfig';
 
 export const checkMicrophonePermission = async (): Promise<boolean> => {
   try {
-    // Simplemente intentar acceder al micrófono sin mostrar alertas
     const stream = await navigator.mediaDevices.getUserMedia({ 
       audio: getAudioConstraints()
     });
     
-    // Detener inmediatamente
     stream.getTracks().forEach(track => track.stop());
     return true;
   } catch (error) {
@@ -23,7 +21,6 @@ export const requestMicrophonePermission = async (deviceId?: string): Promise<bo
   console.log('🔐 Requesting microphone permission...');
   
   try {
-    // Para aplicaciones móviles (Capacitor o navegador), usar MediaDevices directamente
     const audioConstraints = getAudioConstraints(deviceId);
     
     console.log('🎤 Requesting access with constraints:', audioConstraints);
@@ -32,7 +29,6 @@ export const requestMicrophonePermission = async (deviceId?: string): Promise<bo
       audio: audioConstraints
     });
     
-    // Probar brevemente y luego detener
     setTimeout(() => {
       stream.getTracks().forEach(track => track.stop());
     }, 500);
@@ -45,13 +41,7 @@ export const requestMicrophonePermission = async (deviceId?: string): Promise<bo
     
     if (error instanceof DOMException) {
       if (error.name === 'NotAllowedError') {
-        if (isCapacitor) {
-          console.log('❌ Permission denied in Capacitor app');
-        } else if (isMobile) {
-          console.log('❌ Permission denied in mobile browser');
-        } else {
-          console.log('❌ Permission denied in desktop browser');
-        }
+        console.log('❌ Permission denied');
       } else if (error.name === 'NotFoundError') {
         console.error('❌ No microphone found');
       }
