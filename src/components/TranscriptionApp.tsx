@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,6 @@ import { checkMicrophonePermission, requestMicrophonePermission } from '@/utils/
 
 const TranscriptionApp = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
   const [sourceLanguage, setSourceLanguage] = useState('es-ES');
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -31,17 +29,13 @@ const TranscriptionApp = () => {
   const { theme, toggleTheme } = useTheme();
   const { audioDevices, isLoading: devicesLoading, refreshDevices } = useAudioDevices();
   const { 
+    transcript,
     isListening, 
     hasPermission, 
     startListening, 
     stopListening, 
-    clearTranscript 
-  } = useSpeechRecognition(
-    transcript,
-    setTranscript,
-    sourceLanguage,
-    selectedDeviceId
-  );
+    resetTranscript 
+  } = useSpeechRecognition(sourceLanguage, selectedDeviceId);
 
   const { translateText, isTranslating } = useGoogleTranslate();
   const { isCapacitor, isMobile } = detectEnvironment();
@@ -142,8 +136,7 @@ const TranscriptionApp = () => {
 
   const handleClearAll = () => {
     console.log('🧹 Clearing all content...');
-    clearTranscript();
-    setTranscript('');
+    resetTranscript();
     setTranslatedText('');
   };
 
