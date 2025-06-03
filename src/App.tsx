@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +9,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const AppComponent = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -24,7 +25,4 @@ const App = () => (
   </QueryClientProvider>
 );
 
-import { Permissions } from '@capacitor/permissions';
-import { App } from '@capacitor/app';
-
-export default App;
+export default AppComponent;

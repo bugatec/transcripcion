@@ -1,151 +1,74 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { useGoogleTranslate } from '../hooks/useGoogleTranslate';
-import { useAudioDevices } from '../hooks/useAudioDevices';
-import { useTheme } from '../hooks/useTheme';
-import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card';
-import AppHeader from './AppHeader';
-import LanguageSelector from './LanguageSelector';
-import AudioDeviceSelector from './AudioDeviceSelector';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Mic, MicOff, Square, Play } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
+import useSpeechRecognition from '@/hooks/useSpeechRecognition';
+import useGoogleTranslate from '@/hooks/useGoogleTranslate';
+import useAudioDevices from '@/hooks/useAudioDevices';
+import { useTheme } from '@/hooks/useTheme';
 import TranscriptionBox from './TranscriptionBox';
 import TranslationBox from './TranslationBox';
+import LanguageSelector from './LanguageSelector';
+import AudioDeviceSelector from './AudioDeviceSelector';
 import ControlButtons from './ControlButtons';
-import { Microphone } from '@mozartec/capacitor-microphone';
+import AppHeader from './AppHeader';
+import { detectEnvironment } from '@/utils/deviceDetection';
+import { checkMicrophonePermission, requestMicrophonePermission } from '@/utils/microphonePermissions';
 
 const TranscriptionApp = () => {
-  const [selectedLanguage, setSelectedLanguage] = useState('es-ES');
-  const [translationDirection, setTranslationDirection] = useState('es-en');
-  const [translationText, setTranslationText] = useState('');
-  const [fullTranslationText, setFullTranslationText] = useState('');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
-  const [fullTranscript, setFullTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [sourceLanguage, setSourceLanguage] = useState('es-ES');
+  const [targetLanguage, setTargetLanguage] = useState('en');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [audioLevel, setAudioLevel] = useState(0);
   
-  const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const { audioDevices, isLoading: devicesLoading, refreshDevices, testDevice } = useAudioDevices();
-  const { translateText, isTranslating } = useGoogleTranslate();
   const { theme, toggleTheme } = useTheme();
-  const { toast } = useToast();
-
-  const {
+  const { devices, refreshDevices } = useAudioDevices();
+  const { 
+    isListening, 
+    hasPermission, 
+    startListening, 
+    stopListening, 
+    clearTranscript 
+  } = useSpeechRecognition(
     transcript,
-    isListening,
-    isSupported,
-    hasPermission,
-    isMobile,
-    isCapacitor,
-    startListening,
-    stopListening,
-    resetTranscript,
-    requestMicrophonePermission
-  } = useSpeechRecognition(selectedLanguage, selectedDeviceId === 'default' ? '' : selectedDeviceId);
+    setTranscript,
+    sourceLanguage,
+    selectedDeviceId
+  );
 
-  console.log('App environment:', { isMobile, isCapacitor, isExpanded });
+  const { translatedText, translateText, isTranslating } = useGoogleTranslate();
+  const { isCapacitor, isMobile } = detectEnvironment();
 
-  // Acumular transcripción completa sin repeticiones
   useEffect(() => {
-    if (transcript && isRecording) {
-      if (transcript !== fullTranscript) {
-        setFullTranscript(transcript);
-      }
-    }
-  }, [transcript, isRecording]);
+    console.log('🚀 TranscriptionApp mounted');
+    console.log('📱 Environment:', { isCapacitor, isMobile });
+    
+    const initializePermissions = async () => {
+      console.log('🔍 Checking initial microphone permissions...');
+      const hasAccess = await checkMicrophonePermission();
+      console.log('🎤 Initial permission check result:', hasAccess);
+    };
+    
+    initializePermissions();
+    refreshDevices();
+  }, []);
 
-  // Real-time translation with debouncing
   useEffect(() => {
-    const processRealTimeTranslation = async () => {
-      if (transcript && transcript.trim()) {
-        console.log('Processing real-time translation for:', transcript);
-        
-        const sourceLanguage = translationDirection === 'es-en' ? 'es' : 'en';
-        const targetLanguage = translationDirection === 'es-en' ? 'en' : 'es';
-        
-        if (translationTimeoutRef.current) {
-          clearTimeout(translationTimeoutRef.current);
-        }
-        
-        translationTimeoutRef.current = setTimeout(async () => {
-          try {
-            const translated = await translateText(transcript, sourceLanguage, targetLanguage);
-            setTranslationText(translated);
-            setFullTranslationText(translated);
-          } catch (error) {
-            console.error('Real-time translation error:', error);
-            setTranslationText('Error en la traducción');
-          }
-        }, 500);
-      } else if (!transcript) {
-        setTranslationText('');
-      }
-    };
+    console.log('🎤 Permission state changed:', hasPermission);
+  }, [hasPermission]);
 
-    processRealTimeTranslation();
-
-    return () => {
-      if (translationTimeoutRef.current) {
-        clearTimeout(translationTimeoutRef.current);
-      }
-    };
-  }, [transcript, translationDirection, translateText]);
-
-  const handleDirectionChange = (value: string) => {
-    if (value) {
-      setTranslationDirection(value);
-      
-      if (value === 'es-en') {
-        setSelectedLanguage('es-ES');
-      } else {
-        setSelectedLanguage('en-US');
-      }
-      
-      if (transcript) {
-        const sourceLanguage = value === 'es-en' ? 'es' : 'en';
-        const targetLanguage = value === 'es-en' ? 'en' : 'es';
-        translateText(transcript, sourceLanguage, targetLanguage)
-          .then((translated) => {
-            setTranslationText(translated);
-            setFullTranslationText(translated);
-          })
-          .catch(() => setTranslationText('Error en la traducción'));
-      }
+  useEffect(() => {
+    if (transcript && transcript.trim()) {
+      console.log('📝 Transcript updated, auto-translating...');
+      translateText(transcript, targetLanguage);
     }
-  };
+  }, [transcript, targetLanguage, translateText]);
 
-  const handleReset = () => {
-    resetTranscript();
-    setTranslationText('');
-    setFullTranscript('');
-    setFullTranslationText('');
-    
-    if (translationTimeoutRef.current) {
-      clearTimeout(translationTimeoutRef.current);
-    }
-  };
-
-  const handleDeviceChange = async (deviceId: string) => {
-    console.log('Changing audio device to:', deviceId);
-    setSelectedDeviceId(deviceId);
-    
-    if (deviceId !== 'default') {
-      const isWorking = await testDevice(deviceId);
-      if (!isWorking) {
-        alert('El dispositivo seleccionado no parece estar funcionando correctamente. Intenta con otro dispositivo.');
-      }
-    }
-  };
-
-  const handleMicrophoneClick = async () => {
-    console.log('🎤 Microphone button clicked');
-    console.log('Current state:', { isListening, hasPermission, isMobile, isCapacitor, selectedDeviceId });
-    
-    if (isListening) {
-      console.log('🛑 Stopping listening...');
-      stopListening();
-      setIsRecording(false);
-    } else {
+  const handleStartRecording = async () => {
+    try {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
@@ -162,17 +85,13 @@ const TranscriptionApp = () => {
             return;
           }
         }
-        
-        console.log('⏳ Adding delay for Capacitor app...');
-        await new Promise(resolve => setTimeout(resolve, 500));
       } else if (isMobile) {
-        console.log('📱 Mobile browser - checking permissions...');
+        // Mobile browser
         if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting microphone permission for mobile browser...');
           const granted = await requestMicrophonePermission();
           if (!granted) {
             console.error('❌ Permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.');
+            alert('❌ Necesitas permitir el acceso al micrófono en la configuración del navegador.');
             setIsRecording(false);
             return;
           }
@@ -194,160 +113,117 @@ const TranscriptionApp = () => {
       }
       
       startListening();
-    }
-  };
-
-  const downloadTranscript = (type: 'original' | 'translation') => {
-    const text = type === 'original' ? fullTranscript : fullTranslationText;
-    const fileName = type === 'original' ? 'transcripcion-original' : 'traduccion';
-    
-    if (!text.trim()) {
-      toast({
-        title: "No hay contenido",
-        description: `No hay ${type === 'original' ? 'transcripción' : 'traducción'} para descargar.`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const element = document.createElement("a");
-    const file = new Blob([text], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${fileName}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-
-    toast({
-      title: "Descarga completa",
-      description: `${type === 'original' ? 'La transcripción' : 'La traducción'} se ha descargado exitosamente.`,
-    });
-  };
-
-  const copyText = async (type: 'original' | 'translation') => {
-    const text = type === 'original' ? fullTranscript : fullTranslationText;
-    
-    if (!text.trim()) {
-      toast({
-        title: "No hay contenido",
-        description: `No hay ${type === 'original' ? 'transcripción' : 'traducción'} para copiar.`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({
-        title: "Copiado al portapapeles",
-        description: `${type === 'original' ? 'La transcripción' : 'La traducción'} se ha copiado exitosamente.`,
-      });
+      
     } catch (error) {
+      console.error('❌ Error starting recording:', error);
       toast({
-        title: "Error al copiar",
-        description: "No se pudo copiar al portapapeles.",
-        variant: "destructive"
+        title: "Error",
+        description: "No se pudo iniciar la grabación. Verifica los permisos del micrófono.",
+        variant: "destructive",
       });
+      setIsRecording(false);
     }
   };
 
-  if (!isSupported) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
-        <Card className="p-8 text-center max-w-md">
-          <div className="text-6xl mb-4">😔</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Navegador no compatible
-          </h2>
-          <p className="text-gray-600">
-            Tu navegador no soporta reconocimiento de voz. 
-            Prueba con Chrome, Edge o Safari.
-          </p>
-        </Card>
-      </div>
-    );
-  }
+  const handleStopRecording = () => {
+    console.log('🛑 Stopping recording...');
+    setIsRecording(false);
+    stopListening();
+  };
+
+  const handleClearAll = () => {
+    console.log('🧹 Clearing all content...');
+    clearTranscript();
+    setTranscript('');
+  };
+
+  const getRecordingButtonColor = () => {
+    if (isListening) return 'bg-red-500 hover:bg-red-600';
+    if (isRecording) return 'bg-yellow-500 hover:bg-yellow-600';
+    return 'bg-blue-500 hover:bg-blue-600';
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <AppHeader 
-          theme={theme}
-          isMobile={isMobile}
-          isExpanded={isExpanded}
-          onToggleTheme={toggleTheme}
-          onToggleExpanded={() => setIsExpanded(!isExpanded)}
-        />
-
-        {/* Language Selector - Hidden when expanded */}
-        <LanguageSelector 
-          translationDirection={translationDirection}
-          onDirectionChange={handleDirectionChange}
-          isHidden={isExpanded}
-        />
-
-        {/* Audio Device Selector - Hidden when expanded */}
-        {!isExpanded && (
-          <div className="flex justify-center mb-6">
-            <Card className="p-4 shadow-md dark:bg-gray-800">
-              <AudioDeviceSelector
-                selectedDeviceId={selectedDeviceId}
-                audioDevices={audioDevices}
-                devicesLoading={devicesLoading}
-                onDeviceChange={handleDeviceChange}
-                onRefreshDevices={refreshDevices}
-                isHidden={isExpanded}
+    <div className={`min-h-screen transition-colors duration-300 ${
+      theme === 'dark' 
+        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
+        : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'
+    }`}>
+      <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+      
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        <Card className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white'} shadow-xl`}>
+          <CardHeader className="text-center">
+            <CardTitle className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+              🎤 Transcripción y Traducción en Tiempo Real
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <LanguageSelector
+                label="Idioma de origen"
+                value={sourceLanguage}
+                onChange={setSourceLanguage}
+                theme={theme}
+                type="speech"
               />
-            </Card>
-          </div>
-        )}
+              <LanguageSelector
+                label="Idioma de destino"
+                value={targetLanguage}
+                onChange={setTargetLanguage}
+                theme={theme}
+                type="translation"
+              />
+            </div>
 
-        {/* Text Boxes - Ambos siempre visibles cuando expandido */}
-        <div className={`grid gap-6 mb-8 ${
-          isExpanded 
-            ? 'grid-cols-1 md:grid-cols-2' 
-            : 'grid-cols-1 lg:grid-cols-2'
-        }`}>
-          {/* Transcription Box */}
-          <TranscriptionBox
-            title={translationDirection === 'es-en' ? 'Texto Original (Español)' : 'Original Text (English)'}
-            content={transcript}
-            isListening={isListening}
-            placeholder={isListening ? "Comienza a hablar..." : "Presiona el botón de micrófono para empezar"}
-            onCopy={() => copyText('original')}
-            onDownload={() => downloadTranscript('original')}
-            isExpanded={isExpanded}
-          />
-          
-          {/* Translation Box - Siempre visible cuando expandido */}
-          <TranslationBox
-            title={translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
-            content={translationText}
-            isTranslating={isTranslating}
-            placeholder="La traducción aparecerá en tiempo real mientras hablas"
-            onCopy={() => copyText('translation')}
-            onDownload={() => downloadTranscript('translation')}
-            isExpanded={isExpanded}
-          />
-        </div>
+            <AudioDeviceSelector
+              devices={devices}
+              selectedDeviceId={selectedDeviceId}
+              onDeviceChange={setSelectedDeviceId}
+              onRefresh={refreshDevices}
+              theme={theme}
+            />
 
-        {/* Controls */}
-        <ControlButtons
-          isListening={isListening}
-          hasPermission={hasPermission}
-          isMobile={isMobile}
-          transcript={transcript}
-          onMicrophoneClick={handleMicrophoneClick}
-          onReset={handleReset}
-        />
+            <ControlButtons
+              isRecording={isRecording}
+              isListening={isListening}
+              hasPermission={hasPermission}
+              onStartRecording={handleStartRecording}
+              onStopRecording={handleStopRecording}
+              onClearAll={handleClearAll}
+              getRecordingButtonColor={getRecordingButtonColor}
+              theme={theme}
+            />
 
-        {/* Footer */}
-        <div className="text-center mt-12 text-gray-500 dark:text-gray-400">
-          <p className="text-xs mt-2 font-medium">
-            Bugatecmx - Todos los derechos reservados 2025.
-          </p>
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TranscriptionBox
+                transcript={transcript}
+                isListening={isListening}
+                theme={theme}
+              />
+              <TranslationBox
+                translatedText={translatedText}
+                isTranslating={isTranslating}
+                theme={theme}
+              />
+            </div>
+
+            {hasPermission === false && (
+              <div className={`p-4 rounded-lg border-2 border-dashed ${
+                theme === 'dark' 
+                  ? 'border-red-400 bg-red-900/20 text-red-300' 
+                  : 'border-red-300 bg-red-50 text-red-700'
+              }`}>
+                <p className="text-center">
+                  ⚠️ {isCapacitor 
+                    ? 'La aplicación necesita acceso al micrófono. Ve a Configuración > Aplicaciones > Transcripción > Permisos y activa el micrófono.' 
+                    : 'Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.'
+                  }
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
