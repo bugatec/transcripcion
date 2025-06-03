@@ -33,7 +33,11 @@ const config: CapacitorConfig = {
     contentInset: 'automatic'
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    permissions: [
+      'android.permission.RECORD_AUDIO',
+      'android.permission.MODIFY_AUDIO_SETTINGS'
+    ]
   }
 };
 

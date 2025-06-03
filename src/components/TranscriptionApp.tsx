@@ -24,7 +24,7 @@ const TranscriptionApp = () => {
   
   const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { audioDevices, isLoading: devicesLoading, refreshDevices, testDevice } = useAudioDevices();
+  const { audioDevices, isLoading: devicesLoading, permissionGranted, refreshDevices, testDevice } = useAudioDevices();
   const { translateText, isTranslating } = useGoogleTranslate();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -283,6 +283,7 @@ const TranscriptionApp = () => {
                 selectedDeviceId={selectedDeviceId}
                 audioDevices={audioDevices}
                 devicesLoading={devicesLoading}
+                permissionGranted={permissionGranted}
                 onDeviceChange={handleDeviceChange}
                 onRefreshDevices={refreshDevices}
                 isHidden={isExpanded}
