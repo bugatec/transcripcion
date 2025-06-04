@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 
 interface AudioDevice {
@@ -21,10 +20,10 @@ export const useAudioDevices = () => {
     
     try {
       // Para Capacitor, usar permisos nativos primero
-      if (isCapacitor && window.Capacitor?.Plugins?.Microphone) {
+      if (isCapacitor && (window as any).Capacitor?.Plugins?.Microphone) {
         console.log('📱 Usando permisos nativos de Capacitor...');
         try {
-          const permission = await window.Capacitor.Plugins.Microphone.requestPermission();
+          const permission = await (window as any).Capacitor.Plugins.Microphone.requestPermission();
           console.log('Permiso nativo:', permission);
           
           if (permission.microphone !== 'granted') {
