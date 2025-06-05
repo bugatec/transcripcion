@@ -1,4 +1,13 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
+
+// TypeScript declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 let recognition: any = null;
 
@@ -63,7 +72,7 @@ export const useSpeechRecognition = (language: string = 'es-ES', deviceId?: stri
     setError(null);
 
     try {
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
