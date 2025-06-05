@@ -16,14 +16,17 @@ interface SpeechRecognitionPlugin {
   requestPermission(): Promise<{ permission: boolean }>;
 }
 
+// Use a more specific type declaration to avoid conflicts
 declare global {
-  interface Window {
-    Capacitor?: {
-      isNativePlatform: () => boolean;
-      Plugins: {
-        SpeechRecognition: SpeechRecognitionPlugin;
-      };
+  interface CapacitorGlobal {
+    isNativePlatform: () => boolean;
+    Plugins: {
+      SpeechRecognition: SpeechRecognitionPlugin;
     };
+  }
+  
+  interface Window {
+    CapacitorSpeech?: CapacitorGlobal;
   }
 }
 
@@ -34,7 +37,9 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isCapacitor = window.Capacitor?.isNativePlatform() || false;
+  // Use safer access to Capacitor
+  const getCapacitor = () => (window as any).Capacitor;
+  const isCapacitor = getCapacitor()?.isNativePlatform() || false;
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   // Verificar disponibilidad al cargar
@@ -43,15 +48,15 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
       console.log('🔍 Verificando disponibilidad de reconocimiento de voz...');
       console.log('Entorno:', { isCapacitor, isMobile });
 
-      if (isCapacitor && window.Capacitor?.Plugins?.SpeechRecognition) {
+      if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
         try {
-          const result = await window.Capacitor.Plugins.SpeechRecognition.available();
+          const result = await getCapacitor().Plugins.SpeechRecognition.available();
           console.log('📱 Plugin nativo disponible:', result.available);
           setIsSupported(result.available);
           
           if (result.available) {
             // Verificar permisos
-            const permissionResult = await window.Capacitor.Plugins.SpeechRecognition.hasPermission();
+            const permissionResult = await getCapacitor().Plugins.SpeechRecognition.hasPermission();
             console.log('🔐 Permisos nativos:', permissionResult.permission);
             setHasPermission(permissionResult.permission);
           }
@@ -73,9 +78,9 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
   const requestPermission = useCallback(async () => {
     console.log('🔐 Solicitando permisos...');
     
-    if (isCapacitor && window.Capacitor?.Plugins?.SpeechRecognition) {
+    if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
       try {
-        const result = await window.Capacitor.Plugins.SpeechRecognition.requestPermission();
+        const result = await getCapacitor().Plugins.SpeechRecognition.requestPermission();
         console.log('✅ Permisos nativos concedidos:', result.permission);
         setHasPermission(result.permission);
         return result.permission;
@@ -116,10 +121,10 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
 
     setIsListening(true);
 
-    if (isCapacitor && window.Capacitor?.Plugins?.SpeechRecognition) {
+    if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
       try {
         console.log('📱 Usando plugin nativo de Capacitor...');
-        const result = await window.Capacitor.Plugins.SpeechRecognition.start({
+        const result = await getCapacitor().Plugins.SpeechRecognition.start({
           language: language,
           maxResults: 1,
           partialResults: true,
@@ -183,9 +188,9 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
     
     console.log('🛑 Deteniendo reconocimiento...');
     
-    if (isCapacitor && window.Capacitor?.Plugins?.SpeechRecognition) {
+    if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
       try {
-        await window.Capacitor.Plugins.SpeechRecognition.stop();
+        await getCapacitor().Plugins.SpeechRecognition.stop();
       } catch (error) {
         console.error('❌ Error deteniendo reconocimiento nativo:', error);
       }

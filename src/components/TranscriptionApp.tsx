@@ -50,7 +50,7 @@ const TranscriptionApp = () => {
     startListening,
     stopListening,
     resetTranscript,
-    requestMicrophonePermission
+    requestPermission: requestMicrophonePermission
   } = speechRecognition;
 
   console.log('App environment:', { 
