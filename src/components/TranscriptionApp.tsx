@@ -37,7 +37,7 @@ const TranscriptionApp = () => {
   // Hook para reconocimiento nativo
   const nativeSpeechRecognition = useNativeSpeechRecognition(selectedLanguage);
 
-  // Determinar qué hook usar
+  // Determinar qué hook usar basado en disponibilidad y configuración
   const speechRecognition = useNativeMode ? nativeSpeechRecognition : webSpeechRecognition;
 
   const {
@@ -47,6 +47,7 @@ const TranscriptionApp = () => {
     hasPermission,
     isMobile,
     isCapacitor,
+    error: speechError,
     startListening,
     stopListening,
     resetTranscript,
@@ -58,17 +59,29 @@ const TranscriptionApp = () => {
     isCapacitor, 
     isExpanded, 
     useNativeMode,
-    isSupported: speechRecognition.isSupported,
-    hasPermission: speechRecognition.hasPermission
+    isSupported,
+    hasPermission,
+    speechError
   });
 
-  // Detectar automáticamente si usar modo nativo
+  // Detectar automáticamente si usar modo nativo en móvil
   useEffect(() => {
-    if (isCapacitor && !webSpeechRecognition.isSupported) {
+    if ((isMobile || isCapacitor) && !webSpeechRecognition.isSupported && nativeSpeechRecognition.isSupported) {
       console.log('🔄 Cambiando a modo nativo automáticamente...');
       setUseNativeMode(true);
     }
-  }, [isCapacitor, webSpeechRecognition.isSupported]);
+  }, [isMobile, isCapacitor, webSpeechRecognition.isSupported, nativeSpeechRecognition.isSupported]);
+
+  // Mostrar errores de reconocimiento de voz
+  useEffect(() => {
+    if (speechError) {
+      toast({
+        title: "Error de Reconocimiento",
+        description: speechError,
+        variant: "destructive"
+      });
+    }
+  }, [speechError, toast]);
 
   // Acumular transcripción completa sin repeticiones
   useEffect(() => {
@@ -186,31 +199,38 @@ const TranscriptionApp = () => {
   };
 
   const handleMicrophoneClick = async () => {
-    console.log('🎤 Microphone button clicked');
-    console.log('Current state:', { 
+    console.log('🎤 Botón de micrófono presionado');
+    console.log('Estado actual:', { 
       isListening, 
       hasPermission, 
       isMobile, 
       isCapacitor, 
-      selectedDeviceId,
-      useNativeMode 
+      useNativeMode,
+      speechError
     });
     
     if (isListening) {
-      console.log('🛑 Stopping listening...');
+      console.log('🛑 Deteniendo grabación...');
       stopListening();
       setIsRecording(false);
     } else {
-      console.log('🚀 Starting to listen...');
+      console.log('🚀 Iniciando grabación...');
       setIsRecording(true);
       
-      // Verificar permisos si es necesario
-      if (hasPermission === false || hasPermission === null) {
-        console.log('🔐 Requesting permission...');
+      // Si no tenemos permisos o hay un error, solicitar permisos primero
+      if (hasPermission === false || hasPermission === null || speechError) {
+        console.log('🔐 Solicitando permisos de micrófono...');
+        
         const granted = await requestMicrophonePermission();
         if (!granted) {
-          console.error('❌ Permission denied');
-          alert('❌ Necesitas permitir el acceso al micrófono para usar esta función.');
+          console.error('❌ Permisos denegados');
+          
+          toast({
+            title: "Permisos Requeridos",
+            description: "Necesitas permitir el acceso al micrófono para usar esta función. Verifica la configuración de tu navegador o dispositivo.",
+            variant: "destructive"
+          });
+          
           setIsRecording(false);
           return;
         }
@@ -221,7 +241,17 @@ const TranscriptionApp = () => {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
-      startListening();
+      try {
+        await startListening();
+      } catch (error) {
+        console.error('❌ Error iniciando reconocimiento:', error);
+        toast({
+          title: "Error al Iniciar",
+          description: "No se pudo iniciar el reconocimiento de voz. Verifica los permisos del micrófono.",
+          variant: "destructive"
+        });
+        setIsRecording(false);
+      }
     }
   };
 
@@ -288,12 +318,17 @@ const TranscriptionApp = () => {
             Reconocimiento de voz no disponible
           </h2>
           <p className="text-gray-600 mb-4">
-            No se detectó soporte para reconocimiento de voz en este dispositivo.
+            No se detectó soporte para reconocimiento de voz en este dispositivo o navegador.
           </p>
-          {isCapacitor && (
-            <p className="text-sm text-blue-600">
-              Intenta instalar el plugin de reconocimiento de voz nativo.
-            </p>
+          {(isMobile || isCapacitor) && (
+            <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded">
+              <p className="font-medium mb-1">Para dispositivos móviles:</p>
+              <ul className="text-left list-disc list-inside space-y-1">
+                <li>Verifica que tengas permisos de micrófono habilitados</li>
+                <li>Usa un navegador compatible (Chrome, Safari)</li>
+                <li>Asegúrate de tener conexión a internet</li>
+              </ul>
+            </div>
           )}
         </Card>
       </div>

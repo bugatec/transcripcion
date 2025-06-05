@@ -16,20 +16,6 @@ interface SpeechRecognitionPlugin {
   requestPermission(): Promise<{ permission: boolean }>;
 }
 
-// Use a more specific type declaration to avoid conflicts
-declare global {
-  interface CapacitorGlobal {
-    isNativePlatform: () => boolean;
-    Plugins: {
-      SpeechRecognition: SpeechRecognitionPlugin;
-    };
-  }
-  
-  interface Window {
-    CapacitorSpeech?: CapacitorGlobal;
-  }
-}
-
 export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -37,17 +23,18 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Use safer access to Capacitor
+  // Detectar entorno Capacitor de manera más robusta
   const getCapacitor = () => (window as any).Capacitor;
-  const isCapacitor = getCapacitor()?.isNativePlatform() || false;
+  const isCapacitor = !!getCapacitor()?.isNativePlatform?.();
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  console.log('🔍 Entorno detectado:', { isCapacitor, isMobile, hasCapacitor: !!getCapacitor() });
 
   // Verificar disponibilidad al cargar
   useEffect(() => {
     const checkAvailability = async () => {
-      console.log('🔍 Verificando disponibilidad de reconocimiento de voz...');
-      console.log('Entorno:', { isCapacitor, isMobile });
-
+      console.log('🔍 Verificando disponibilidad de reconocimiento nativo...');
+      
       if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
         try {
           const result = await getCapacitor().Plugins.SpeechRecognition.available();
@@ -55,7 +42,7 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
           setIsSupported(result.available);
           
           if (result.available) {
-            // Verificar permisos
+            // Verificar permisos nativos
             const permissionResult = await getCapacitor().Plugins.SpeechRecognition.hasPermission();
             console.log('🔐 Permisos nativos:', permissionResult.permission);
             setHasPermission(permissionResult.permission);
@@ -65,23 +52,52 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
           setIsSupported(false);
         }
       } else {
-        // Fallback a Web Speech API
+        console.log('📱 Plugin nativo no disponible, usando Web Speech API');
         const webSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-        console.log('🌐 Web Speech API disponible:', webSupported);
         setIsSupported(webSupported);
+        
+        // Para web, verificar permisos de micrófono inmediatamente
+        if (webSupported) {
+          checkWebPermissions();
+        }
+      }
+    };
+
+    const checkWebPermissions = async () => {
+      try {
+        // Verificar permisos existentes sin solicitar
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        console.log('🔐 Estado de permisos web:', permissionStatus.state);
+        
+        if (permissionStatus.state === 'granted') {
+          setHasPermission(true);
+        } else if (permissionStatus.state === 'denied') {
+          setHasPermission(false);
+        } else {
+          setHasPermission(null); // Necesita solicitar
+        }
+        
+        // Escuchar cambios en permisos
+        permissionStatus.onchange = () => {
+          console.log('🔄 Cambio en permisos:', permissionStatus.state);
+          setHasPermission(permissionStatus.state === 'granted');
+        };
+      } catch (error) {
+        console.log('⚠️ No se puede verificar permisos automáticamente:', error);
+        setHasPermission(null);
       }
     };
 
     checkAvailability();
-  }, [isCapacitor, isMobile]);
+  }, [isCapacitor]);
 
   const requestPermission = useCallback(async () => {
-    console.log('🔐 Solicitando permisos...');
+    console.log('🔐 Solicitando permisos de micrófono...');
     
     if (isCapacitor && getCapacitor()?.Plugins?.SpeechRecognition) {
       try {
         const result = await getCapacitor().Plugins.SpeechRecognition.requestPermission();
-        console.log('✅ Permisos nativos concedidos:', result.permission);
+        console.log('✅ Permisos nativos:', result.permission);
         setHasPermission(result.permission);
         return result.permission;
       } catch (error) {
@@ -90,14 +106,35 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
         return false;
       }
     } else {
-      // Fallback a permisos web
+      // Solicitar permisos web
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('🌐 Solicitando permisos web de micrófono...');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        
+        console.log('✅ Permisos web concedidos');
         stream.getTracks().forEach(track => track.stop());
         setHasPermission(true);
+        setError(null);
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error solicitando permisos web:', error);
+        
+        let errorMessage = 'Error al solicitar permisos de micrófono';
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Permisos de micrófono denegados. Por favor, permite el acceso en tu navegador.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No se encontró ningún micrófono. Verifica que tengas uno conectado.';
+        } else if (error.name === 'SecurityError') {
+          errorMessage = 'Error de seguridad. Esta página necesita HTTPS para acceder al micrófono.';
+        }
+        
+        setError(errorMessage);
         setHasPermission(false);
         return false;
       }
@@ -107,14 +144,16 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
   const startListening = useCallback(async () => {
     if (isListening) return;
     
-    console.log('🚀 Iniciando reconocimiento de voz...');
+    console.log('🚀 Iniciando reconocimiento de voz nativo...');
     setError(null);
+    setTranscript('');
     
     // Verificar y solicitar permisos si es necesario
-    if (hasPermission === false || hasPermission === null) {
+    if (hasPermission !== true) {
+      console.log('🔐 Solicitando permisos antes de iniciar...');
       const granted = await requestPermission();
       if (!granted) {
-        setError('Permisos de micrófono denegados');
+        setError('Permisos de micrófono requeridos');
         return;
       }
     }
@@ -131,7 +170,7 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
           popup: false
         });
         
-        console.log('🎯 Resultado del reconocimiento:', result);
+        console.log('🎯 Resultado del reconocimiento nativo:', result);
         if (result.matches && result.matches.length > 0) {
           setTranscript(result.matches[0]);
         }
@@ -146,31 +185,57 @@ export const useNativeSpeechRecognition = (language: string = 'es-ES') => {
       console.log('🌐 Usando Web Speech API...');
       try {
         const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+          throw new Error('Web Speech API no disponible');
+        }
+        
         const recognition = new SpeechRecognition();
         
         recognition.continuous = false;
         recognition.interimResults = true;
         recognition.lang = language;
 
+        recognition.onstart = () => {
+          console.log('🚀 Web Speech Recognition iniciado');
+        };
+
         recognition.onresult = (event: any) => {
           let finalTranscript = '';
+          let interimTranscript = '';
+          
           for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript;
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
             }
           }
-          if (finalTranscript) {
-            setTranscript(finalTranscript);
-          }
+          
+          // Mostrar tanto resultado final como intermedio
+          setTranscript(finalTranscript || interimTranscript);
+          console.log('🎯 Transcripción:', { finalTranscript, interimTranscript });
         };
 
         recognition.onend = () => {
+          console.log('🛑 Web Speech Recognition terminado');
           setIsListening(false);
         };
 
         recognition.onerror = (event: any) => {
           console.error('❌ Error en Web Speech API:', event.error);
-          setError(`Error: ${event.error}`);
+          let errorMessage = `Error en reconocimiento: ${event.error}`;
+          
+          if (event.error === 'not-allowed') {
+            errorMessage = 'Permisos de micrófono denegados';
+          } else if (event.error === 'no-speech') {
+            errorMessage = 'No se detectó voz';
+          } else if (event.error === 'audio-capture') {
+            errorMessage = 'Error capturando audio del micrófono';
+          }
+          
+          setError(errorMessage);
           setIsListening(false);
         };
 
