@@ -1,3 +1,4 @@
+
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -27,6 +28,9 @@ const config: CapacitorConfig = {
     Microphone: {
       iosCustomPresentationAnchor: true,
     },
+    SpeechRecognition: {
+      enabled: true,
+    },
     CapacitorHttp: {
       enabled: true,
     },
@@ -50,7 +54,9 @@ const config: CapacitorConfig = {
       'android.permission.ACCESS_COARSE_LOCATION',
       'android.permission.MANAGE_EXTERNAL_STORAGE',
       'android.permission.READ_EXTERNAL_STORAGE',
-      'android.permission.WRITE_EXTERNAL_STORAGE'
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.INTERNET',
+      'android.permission.ACCESS_NETWORK_STATE'
     ]
   }
 };

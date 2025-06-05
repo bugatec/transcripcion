@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useNativeSpeechRecognition } from '../hooks/useNativeSpeechRecognition';
 import { useGoogleTranslate } from '../hooks/useGoogleTranslate';
 import { useAudioDevices } from '../hooks/useAudioDevices';
 import { useTheme } from '../hooks/useTheme';
@@ -21,6 +22,7 @@ const TranscriptionApp = () => {
   const [fullTranscript, setFullTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [useNativeMode, setUseNativeMode] = useState(false);
   
   const translationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -28,6 +30,15 @@ const TranscriptionApp = () => {
   const { translateText, isTranslating } = useGoogleTranslate();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+
+  // Hook para reconocimiento web estándar
+  const webSpeechRecognition = useSpeechRecognition(selectedLanguage, selectedDeviceId === 'default' ? '' : selectedDeviceId);
+
+  // Hook para reconocimiento nativo
+  const nativeSpeechRecognition = useNativeSpeechRecognition(selectedLanguage);
+
+  // Determinar qué hook usar
+  const speechRecognition = useNativeMode ? nativeSpeechRecognition : webSpeechRecognition;
 
   const {
     transcript,
@@ -40,9 +51,24 @@ const TranscriptionApp = () => {
     stopListening,
     resetTranscript,
     requestMicrophonePermission
-  } = useSpeechRecognition(selectedLanguage, selectedDeviceId === 'default' ? '' : selectedDeviceId);
+  } = speechRecognition;
 
-  console.log('App environment:', { isMobile, isCapacitor, isExpanded });
+  console.log('App environment:', { 
+    isMobile, 
+    isCapacitor, 
+    isExpanded, 
+    useNativeMode,
+    isSupported: speechRecognition.isSupported,
+    hasPermission: speechRecognition.hasPermission
+  });
+
+  // Detectar automáticamente si usar modo nativo
+  useEffect(() => {
+    if (isCapacitor && !webSpeechRecognition.isSupported) {
+      console.log('🔄 Cambiando a modo nativo automáticamente...');
+      setUseNativeMode(true);
+    }
+  }, [isCapacitor, webSpeechRecognition.isSupported]);
 
   // Acumular transcripción completa sin repeticiones
   useEffect(() => {
@@ -125,6 +151,14 @@ const TranscriptionApp = () => {
   };
 
   const handleDeviceChange = async (deviceId: string) => {
+    if (useNativeMode) {
+      toast({
+        title: "Modo Nativo Activo",
+        description: "En modo nativo se usa el micrófono predeterminado del dispositivo.",
+      });
+      return;
+    }
+
     console.log('Changing audio device to:', deviceId);
     setSelectedDeviceId(deviceId);
     
@@ -136,9 +170,31 @@ const TranscriptionApp = () => {
     }
   };
 
+  const toggleRecognitionMode = () => {
+    if (isListening) {
+      stopListening();
+      setIsRecording(false);
+    }
+    
+    setUseNativeMode(!useNativeMode);
+    resetTranscript();
+    
+    toast({
+      title: `Modo ${!useNativeMode ? 'Nativo' : 'Web'} Activado`,
+      description: `Cambiando a reconocimiento de voz ${!useNativeMode ? 'nativo' : 'web'}.`,
+    });
+  };
+
   const handleMicrophoneClick = async () => {
     console.log('🎤 Microphone button clicked');
-    console.log('Current state:', { isListening, hasPermission, isMobile, isCapacitor, selectedDeviceId });
+    console.log('Current state:', { 
+      isListening, 
+      hasPermission, 
+      isMobile, 
+      isCapacitor, 
+      selectedDeviceId,
+      useNativeMode 
+    });
     
     if (isListening) {
       console.log('🛑 Stopping listening...');
@@ -148,36 +204,20 @@ const TranscriptionApp = () => {
       console.log('🚀 Starting to listen...');
       setIsRecording(true);
       
-      // Para aplicaciones Capacitor, manejo especial de permisos
-      if (isCapacitor) {
-        console.log('📱 Capacitor app - requesting native permissions...');
-        if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting native microphone permission...');
-          const granted = await requestMicrophonePermission();
-          if (!granted) {
-            console.error('❌ Native permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono en la configuración de la aplicación.');
-            setIsRecording(false);
-            return;
-          }
+      // Verificar permisos si es necesario
+      if (hasPermission === false || hasPermission === null) {
+        console.log('🔐 Requesting permission...');
+        const granted = await requestMicrophonePermission();
+        if (!granted) {
+          console.error('❌ Permission denied');
+          alert('❌ Necesitas permitir el acceso al micrófono para usar esta función.');
+          setIsRecording(false);
+          return;
         }
-        
-        console.log('⏳ Adding delay for Capacitor app...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else if (isMobile) {
-        console.log('📱 Mobile browser - checking permissions...');
-        if (hasPermission === null || hasPermission === false) {
-          console.log('🔐 Requesting microphone permission for mobile browser...');
-          const granted = await requestMicrophonePermission();
-          if (!granted) {
-            console.error('❌ Permission denied');
-            alert('❌ Necesitas permitir el acceso al micrófono para usar esta función. Ve a la configuración del navegador y permite el micrófono.');
-            setIsRecording(false);
-            return;
-          }
-        }
-        
-        console.log('⏳ Adding delay for mobile browser...');
+      }
+      
+      // Pequeño delay para dispositivos móviles
+      if (isMobile || isCapacitor) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
@@ -245,12 +285,16 @@ const TranscriptionApp = () => {
         <Card className="p-8 text-center max-w-md">
           <div className="text-6xl mb-4">😔</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Navegador no compatible
+            Reconocimiento de voz no disponible
           </h2>
-          <p className="text-gray-600">
-            Tu navegador no soporta reconocimiento de voz. 
-            Prueba con Chrome, Edge o Safari.
+          <p className="text-gray-600 mb-4">
+            No se detectó soporte para reconocimiento de voz en este dispositivo.
           </p>
+          {isCapacitor && (
+            <p className="text-sm text-blue-600">
+              Intenta instalar el plugin de reconocimiento de voz nativo.
+            </p>
+          )}
         </Card>
       </div>
     );
@@ -268,6 +312,30 @@ const TranscriptionApp = () => {
           onToggleExpanded={() => setIsExpanded(!isExpanded)}
         />
 
+        {/* Mode Toggle for Mobile */}
+        {(isMobile || isCapacitor) && !isExpanded && (
+          <div className="flex justify-center mb-4">
+            <Card className="p-3 shadow-md dark:bg-gray-800">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">Modo:</span>
+                <button
+                  onClick={toggleRecognitionMode}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    useNativeMode
+                      ? 'bg-green-500 text-white'
+                      : 'bg-blue-500 text-white'
+                  }`}
+                >
+                  {useNativeMode ? '📱 Nativo' : '🌐 Web'}
+                </button>
+                <span className="text-xs text-gray-500">
+                  {useNativeMode ? 'Micrófono del sistema' : 'API del navegador'}
+                </span>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Language Selector - Hidden when expanded */}
         <LanguageSelector 
           translationDirection={translationDirection}
@@ -275,8 +343,8 @@ const TranscriptionApp = () => {
           isHidden={isExpanded}
         />
 
-        {/* Audio Device Selector - Hidden when expanded */}
-        {!isExpanded && (
+        {/* Audio Device Selector - Hidden when expanded or in native mode */}
+        {!isExpanded && !useNativeMode && (
           <div className="flex justify-center mb-6">
             <Card className="p-4 shadow-md dark:bg-gray-800">
               <AudioDeviceSelector
@@ -292,7 +360,7 @@ const TranscriptionApp = () => {
           </div>
         )}
 
-        {/* Text Boxes - Ambos siempre visibles cuando expandido */}
+        {/* Text Boxes */}
         <div className={`grid gap-6 mb-8 ${
           isExpanded 
             ? 'grid-cols-1 md:grid-cols-2' 
@@ -309,7 +377,7 @@ const TranscriptionApp = () => {
             isExpanded={isExpanded}
           />
           
-          {/* Translation Box - Siempre visible cuando expandido */}
+          {/* Translation Box */}
           <TranslationBox
             title={translationDirection === 'es-en' ? 'Translation (English)' : 'Traducción (Español)'}
             content={translationText}
@@ -330,6 +398,17 @@ const TranscriptionApp = () => {
           onMicrophoneClick={handleMicrophoneClick}
           onReset={handleReset}
         />
+
+        {/* Status Info */}
+        {(isMobile || isCapacitor) && (
+          <div className="text-center mt-6">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Modo: {useNativeMode ? 'Nativo' : 'Web'} | 
+              Estado: {hasPermission ? '✅ Permitido' : '❌ Sin permisos'} |
+              Soporte: {isSupported ? '✅ Disponible' : '❌ No disponible'}
+            </p>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500 dark:text-gray-400">
