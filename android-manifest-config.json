@@ -5,12 +5,21 @@
     "android.permission.INTERNET",
     "android.permission.ACCESS_NETWORK_STATE",
     "android.permission.WAKE_LOCK",
-    "android.permission.MODIFY_AUDIO_SETTINGS"
+    "android.permission.MODIFY_AUDIO_SETTINGS",
+    "android.permission.CAMERA",
+    "android.permission.BLUETOOTH",
+    "android.permission.BLUETOOTH_ADMIN",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.ACCESS_COARSE_LOCATION"
   ],
   "features": [
     {
       "name": "android.hardware.microphone",
       "required": true
+    },
+    {
+      "name": "android.hardware.camera",
+      "required": false
     },
     {
       "name": "android.software.leanback",
@@ -20,6 +29,12 @@
   "uses-permission": [
     {
       "android:name": "android.permission.RECORD_AUDIO"
+    },
+    {
+      "android:name": "android.permission.MODIFY_AUDIO_SETTINGS"
+    },
+    {
+      "android:name": "android.permission.CAMERA"
     }
   ],
   "queries": {
@@ -28,5 +43,9 @@
         "action": "android.settings.APPLICATION_DETAILS_SETTINGS"
       }
     ]
+  },
+  "application": {
+    "android:usesCleartextTraffic": "true",
+    "android:hardwareAccelerated": "true"
   }
 }

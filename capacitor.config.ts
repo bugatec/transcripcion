@@ -7,7 +7,10 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     url: 'https://94ff23dc-7155-4bd1-8438-2233abd9c25e.lovableproject.com?forceHideBadge=true',
-    cleartext: true
+    cleartext: true,
+    // Forzar HTTPS para getUserMedia en dispositivos móviles
+    iosScheme: 'https',
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
@@ -45,6 +48,8 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: true,
+    // Configuración específica para WebView y permisos
+    webContentsDebuggingEnabled: true,
     permissions: [
       'android.permission.RECORD_AUDIO',
       'android.permission.MODIFY_AUDIO_SETTINGS',
@@ -56,7 +61,10 @@ const config: CapacitorConfig = {
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.INTERNET',
-      'android.permission.ACCESS_NETWORK_STATE'
+      'android.permission.ACCESS_NETWORK_STATE',
+      // Agregar permisos específicos para WebView y micrófono
+      'android.permission.CAMERA',
+      'android.permission.WAKE_LOCK'
     ]
   }
 };
