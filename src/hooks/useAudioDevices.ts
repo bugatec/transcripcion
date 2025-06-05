@@ -1,4 +1,18 @@
+
 import { useState, useEffect, useCallback } from 'react';
+
+// TypeScript declarations for Capacitor
+declare global {
+  interface Window {
+    Capacitor?: {
+      isNativePlatform: () => boolean;
+      getPlatform: () => string;
+      Plugins?: {
+        Microphone?: any;
+      };
+    };
+  }
+}
 
 interface AudioDevice {
   deviceId: string;
